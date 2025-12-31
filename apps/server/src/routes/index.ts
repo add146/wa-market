@@ -1,0 +1,11 @@
+export { default as authRoutes } from './auth';
+export { default as productsRoutes } from './products';
+export { default as categoriesRoutes } from './categories';
+export { default as cartRoutes } from './cart';
+export { default as ordersRoutes } from './orders';
+export { default as wishlistsRoutes } from './wishlists';
+export { default as reviewsRoutes } from './reviews';
+export { default as inventoryRoutes } from './inventory';
+export { default as settingsRoutes } from './settings';
+export { default as shippingRoutes } from './shipping';
+export { default as couponsRoutes } from './coupons';

@@ -1,0 +1,19 @@
+{
+  "name": "tokoindo-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/web",
+    "dev:server": "npm run dev --workspace=apps/server",
+    "dev:all": "npm run dev --workspace=apps/web & npm run dev --workspace=apps/server",
+    "build": "npm run build --workspace=apps/web",
+    "build:server": "npm run build --workspace=apps/server",
+    "preview": "npm run preview --workspace=apps/web",
+    "db:push": "npm run db:push --workspace=apps/server",
+    "db:seed": "npm run db:seed --workspace=apps/server",
+    "db:studio": "npm run db:studio --workspace=apps/server"
+  }
+}
