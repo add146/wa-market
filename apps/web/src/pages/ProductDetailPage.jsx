@@ -13,6 +13,16 @@ import { useProduct, useShippingOptions, useSetting } from '../hooks'
 import { useCart } from '../context'
 import LoadingState from '../components/atoms/LoadingState'
 
+const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'
+
+// Helper to get full image URL (handle local uploads)
+const getImageUrl = (url) => {
+    if (url?.startsWith('/uploads')) {
+        return `${API_BASE}${url}`
+    }
+    return url || ''
+}
+
 /**
  * ProductDetailPage - Product detail page
  */
@@ -61,10 +71,10 @@ function ProductDetailPage() {
         return <LoadingState />
     }
 
-    // Transform product data for components
+    // Transform product data for components - handle both image array and single image
     const productImages = product.images?.length > 0
-        ? product.images.map(img => ({ src: img.url, alt: img.alt || product.name }))
-        : [{ src: product.image, alt: product.imageAlt || product.name }]
+        ? product.images.map(img => ({ src: getImageUrl(img.url || img), alt: img.alt || product.name }))
+        : [{ src: getImageUrl(product.image), alt: product.imageAlt || product.name }]
 
     const productColors = product.variants
         ?.filter(v => v.type === 'color')

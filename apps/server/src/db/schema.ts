@@ -60,6 +60,7 @@ export const products = pgTable('products', {
     image: text('image'),
     imageAlt: varchar('image_alt', { length: 255 }),
     stock: integer('stock').notNull().default(0),
+    weight: integer('weight').default(500), // in grams, default 500g
     isActive: boolean('is_active').default(true),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow(),

@@ -3,7 +3,8 @@ import type { Order, OrderItem } from '../db/schema';
 /**
  * Format order data into WhatsApp message
  */
-export function formatOrderMessage(order: Order, items: OrderItem[]): string {
+export function formatOrderMessage(order: Order, items: OrderItem[], storeName?: string): string {
+    const store = storeName || 'TokoIndo';
     const itemsList = items
         .map((item, index) => {
             const variant = item.variantInfo ? ` (${item.variantInfo})` : '';
@@ -12,7 +13,12 @@ export function formatOrderMessage(order: Order, items: OrderItem[]): string {
         .join('\n');
 
     const message = `
-*🛒 PESANAN BARU #${order.orderNumber}*
+━━━━━━━━━━━━━━━━━━━━
+🧾 *NOTA PESANAN*
+*No. Order: ${order.orderNumber}*
+━━━━━━━━━━━━━━━━━━━━
+
+🛒 *PESANAN BARU ${store}*
 
 📦 *Detail Produk:*
 ${itemsList}
@@ -36,10 +42,12 @@ ${order.couponCode ? `Kupon (${order.couponCode}): -Rp ${order.couponDiscount?.t
 Ongkir: +Rp ${order.shippingCost.toLocaleString('id-ID')}
 ${order.uniqueCode ? `Kode Unik: +Rp ${order.uniqueCode}` : ''}
 ━━━━━━━━━━━━━━━━━━━━
-*TOTAL: Rp ${order.total.toLocaleString('id-ID')}*
+*TOTAL BAYAR: Rp ${order.total.toLocaleString('id-ID')}*
+━━━━━━━━━━━━━━━━━━━━
 
-📝 Status: ${order.status.toUpperCase()}
 📅 Tanggal: ${new Date(order.createdAt || Date.now()).toLocaleString('id-ID')}
+
+💡 *Simpan No. Order ini untuk konfirmasi pembayaran*
 `.trim();
 
     return message;
@@ -65,10 +73,11 @@ export function generateWhatsAppUrl(phone: string, message: string): string {
 /**
  * Get WhatsApp URL for customer service inquiry
  */
-export function getCSWhatsAppUrl(csPhone: string, productName?: string): string {
+export function getCSWhatsAppUrl(csPhone: string, productName?: string, storeName?: string): string {
+    const store = storeName || 'TokoIndo';
     const message = productName
         ? `Halo, saya ingin bertanya tentang produk: ${productName}`
-        : 'Halo, saya ingin bertanya tentang produk di TokoIndo';
+        : `Halo, saya ingin bertanya tentang produk di ${store}`;
 
     return generateWhatsAppUrl(csPhone, message);
 }

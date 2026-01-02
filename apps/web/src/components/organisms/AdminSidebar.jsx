@@ -3,6 +3,7 @@ import Icon from '../atoms/Icon'
 import AdminAvatar from '../atoms/AdminAvatar'
 import AdminNavItem from '../molecules/AdminNavItem'
 import { useAuth } from '../../context'
+import { useSetting } from '../../hooks/useSettings'
 
 /**
  * AdminSidebar - Full sidebar component with role-based navigation
@@ -13,6 +14,7 @@ import { useAuth } from '../../context'
 function AdminSidebar({ pendingCount = 0 }) {
     const navigate = useNavigate()
     const { user, logout, isAdmin, isSeller } = useAuth()
+    const { data: storeName } = useSetting('store_name')
 
     const handleLogout = async () => {
         await logout()
@@ -25,7 +27,7 @@ function AdminSidebar({ pendingCount = 0 }) {
             <div className="h-16 flex items-center px-6 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2 text-primary font-bold text-xl tracking-tight">
                     <Icon name="storefront" size={28} />
-                    <span>TokoIndo</span>
+                    <span>{storeName || 'TokoIndo'}</span>
                     {isAdmin && <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full ml-2">Admin</span>}
                     {!isAdmin && isSeller && <span className="text-xs bg-blue-500/20 text-blue-600 px-2 py-0.5 rounded-full ml-2">Seller</span>}
                 </div>
@@ -68,13 +70,23 @@ function AdminSidebar({ pendingCount = 0 }) {
                             <AdminNavItem
                                 to="/admin/sales"
                                 icon="point_of_sale"
-                                label="Pesanan Masuk"
+                                label="Pesanan"
                                 badge={pendingCount > 0 ? pendingCount : undefined}
                             />
                             <AdminNavItem
                                 to="/admin/analytics"
                                 icon="analytics"
                                 label="Statistik"
+                            />
+                            <AdminNavItem
+                                to="/admin/banners"
+                                icon="image"
+                                label="Banner"
+                            />
+                            <AdminNavItem
+                                to="/admin/customers"
+                                icon="people"
+                                label="Daftar Customer"
                             />
                         </div>
                     </div>
@@ -86,21 +98,9 @@ function AdminSidebar({ pendingCount = 0 }) {
                         <h3 className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Administrasi</h3>
                         <div className="space-y-1">
                             <AdminNavItem
-                                to="/admin/verifications"
-                                icon="assignment_turned_in"
-                                label="Verifikasi Order"
-                                badge={pendingCount > 0 ? pendingCount : undefined}
-                                filled
-                            />
-                            <AdminNavItem
                                 to="/admin/users"
                                 icon="group"
                                 label="Kelola Pengguna"
-                            />
-                            <AdminNavItem
-                                to="/admin/categories"
-                                icon="category"
-                                label="Kategori"
                             />
                             <AdminNavItem
                                 to="/admin/coupons"

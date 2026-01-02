@@ -1,9 +1,20 @@
+import { useEffect } from 'react'
 import { Header, MobileNav, WhatsAppFAB } from '../organisms'
+import { useSettings } from '../../hooks/useSettings'
 
 /**
  * MainLayout - Main page layout wrapper with header, footer, and navigation
  */
 function MainLayout({ children }) {
+    const { data: settings } = useSettings()
+
+    // Update browser tab title from settings
+    useEffect(() => {
+        const storeName = settings?.store_name || 'TokoIndo'
+        const tagline = settings?.store_tagline
+        document.title = tagline ? `${storeName} - ${tagline}` : storeName
+    }, [settings])
+
     return (
         <div className="flex min-h-screen w-full flex-col overflow-x-hidden">
             <Header />

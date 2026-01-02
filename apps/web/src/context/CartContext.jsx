@@ -42,6 +42,7 @@ export function CartProvider({ children }) {
                     price: product.price,
                     originalPrice: product.originalPrice,
                     image: product.image,
+                    weight: product.weight || 500, // in grams
                     variantInfo,
                     quantity,
                 }]

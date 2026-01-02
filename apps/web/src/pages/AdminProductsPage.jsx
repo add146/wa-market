@@ -2,7 +2,9 @@ import { useState } from 'react'
 import AdminHeader from '../components/organisms/AdminHeader'
 import { Icon, Modal } from '../components/atoms'
 import { useProducts, useCategories } from '../hooks'
-import { productsApi } from '../api/client'
+import { productsApi, uploadApi } from '../api/client'
+
+const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'
 
 /**
  * AdminProductsPage - Product management for sellers/admins
@@ -30,9 +32,13 @@ function AdminProductsPage() {
         price: '',
         originalPrice: '',
         stock: '',
+        weight: '500',
         categoryId: '',
         images: ''
     })
+    const [imageFile, setImageFile] = useState(null)
+    const [imagePreview, setImagePreview] = useState('')
+    const [isUploading, setIsUploading] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
 
     const filteredProducts = products.filter(p =>
@@ -47,24 +53,39 @@ function AdminProductsPage() {
             price: '',
             originalPrice: '',
             stock: '',
+            weight: '500',
             categoryId: '',
             images: ''
         })
+        setImageFile(null)
+        setImagePreview('')
         setShowModal(true)
     }
 
     const openEditModal = (product) => {
         setEditingProduct(product)
+        const existingImage = product.image || (Array.isArray(product.images) ? product.images[0] : product.images) || ''
         setFormData({
             name: product.name || '',
             description: product.description || '',
             price: product.price?.toString() || '',
             originalPrice: product.originalPrice?.toString() || '',
             stock: product.stock?.toString() || '',
+            weight: product.weight?.toString() || '500',
             categoryId: product.categoryId || '',
-            images: Array.isArray(product.images) ? product.images.join(', ') : (product.images || '')
+            images: existingImage
         })
+        setImageFile(null)
+        setImagePreview(existingImage.startsWith('/uploads') ? `${API_BASE}${existingImage}` : existingImage)
         setShowModal(true)
+    }
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0]
+        if (file) {
+            setImageFile(file)
+            setImagePreview(URL.createObjectURL(file))
+        }
     }
 
     const handleSubmit = async (e) => {
@@ -72,14 +93,25 @@ function AdminProductsPage() {
         setIsSaving(true)
 
         try {
+            let imageUrl = formData.images
+
+            // Upload new image if selected
+            if (imageFile) {
+                setIsUploading(true)
+                const uploadRes = await uploadApi.upload(imageFile)
+                imageUrl = uploadRes.data.url
+                setIsUploading(false)
+            }
+
             const payload = {
                 name: formData.name,
                 description: formData.description,
                 price: parseFloat(formData.price) || 0,
                 originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
                 stock: parseInt(formData.stock) || 0,
+                weight: parseInt(formData.weight) || 500,
                 categoryId: formData.categoryId || null,
-                images: formData.images ? formData.images.split(',').map(s => s.trim()).filter(Boolean) : []
+                images: imageUrl ? [imageUrl] : []
             }
 
             if (editingProduct) {
@@ -95,6 +127,7 @@ function AdminProductsPage() {
             alert('Gagal menyimpan produk: ' + (err.message || 'Unknown error'))
         } finally {
             setIsSaving(false)
+            setIsUploading(false)
         }
     }
 
@@ -113,6 +146,15 @@ function AdminProductsPage() {
     const getCategoryName = (categoryId) => {
         const cat = categories.find(c => c.id === categoryId)
         return cat?.name || '-'
+    }
+
+    // Get full image URL (handle local uploads)
+    const getImageUrl = (product) => {
+        const img = product.images?.[0] || product.image || ''
+        if (img.startsWith('/uploads')) {
+            return `${API_BASE}${img}`
+        }
+        return img
     }
 
     return (
@@ -158,7 +200,7 @@ function AdminProductsPage() {
                             <div key={product.id} className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                                 <div
                                     className="h-40 bg-cover bg-center bg-slate-100 dark:bg-slate-700"
-                                    style={{ backgroundImage: `url('${product.images?.[0] || product.image || ''}')` }}
+                                    style={{ backgroundImage: `url('${getImageUrl(product)}')` }}
                                 />
                                 <div className="p-4">
                                     <h3 className="font-semibold text-slate-900 dark:text-white line-clamp-2 mb-1">
@@ -269,29 +311,49 @@ function AdminProductsPage() {
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            Stok
-                        </label>
-                        <input
-                            type="number"
-                            value={formData.stock}
-                            onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Stok
+                            </label>
+                            <input
+                                type="number"
+                                value={formData.stock}
+                                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Berat (gram)
+                            </label>
+                            <input
+                                type="number"
+                                value={formData.weight}
+                                onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                                placeholder="500"
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                            />
+                        </div>
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            URL Gambar (pisahkan dengan koma)
+                            Gambar Produk
                         </label>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">📐 Ukuran ideal: <strong>800 x 800 px</strong> (rasio 1:1, kotak)</p>
                         <input
-                            type="text"
-                            value={formData.images}
-                            onChange={(e) => setFormData({ ...formData, images: e.target.value })}
-                            placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
-                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-primary file:text-white file:cursor-pointer"
                         />
+                        {imagePreview && (
+                            <div className="mt-2">
+                                <img src={imagePreview} alt="Preview" className="h-32 w-32 object-cover rounded-lg border" />
+                            </div>
+                        )}
+                        {isUploading && <p className="text-sm text-primary mt-1">Mengupload gambar...</p>}
                     </div>
 
                     <div className="flex gap-3 pt-4">
@@ -307,7 +369,7 @@ function AdminProductsPage() {
                             disabled={isSaving}
                             className="flex-1 py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark transition-colors disabled:opacity-50"
                         >
-                            {isSaving ? 'Menyimpan...' : (editingProduct ? 'Simpan Perubahan' : 'Tambah Produk')}
+                            {isSaving ? (isUploading ? 'Mengupload...' : 'Menyimpan...') : (editingProduct ? 'Simpan Perubahan' : 'Tambah Produk')}
                         </button>
                     </div>
                 </form>

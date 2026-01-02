@@ -2,6 +2,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Icon, Button } from '../components/atoms'
 import { useCart } from '../context'
 
+const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'
+
 /**
  * CartPage - Halaman keranjang belanja (Full Page)
  */
@@ -15,6 +17,14 @@ function CartPage() {
 
     // Format currency
     const formatPrice = (price) => `Rp ${price.toLocaleString('id-ID')}`
+
+    // Get full image URL (handle local uploads)
+    const getImageUrl = (image) => {
+        if (!image) return '/placeholder-product.png'
+        if (image.startsWith('/uploads')) return `${API_BASE}${image}`
+        if (image.startsWith('http')) return image
+        return image
+    }
 
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark">
@@ -69,8 +79,8 @@ function CartPage() {
                                     {/* Image */}
                                     <Link to={`/product/${item.productId}`} className="flex-shrink-0">
                                         <div
-                                            className="w-24 h-24 rounded-xl bg-cover bg-center"
-                                            style={{ backgroundImage: `url('${item.image}')` }}
+                                            className="w-24 h-24 rounded-xl bg-cover bg-center bg-gray-100 dark:bg-gray-700"
+                                            style={{ backgroundImage: `url('${getImageUrl(item.image)}')` }}
                                         />
                                     </Link>
 

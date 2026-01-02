@@ -20,6 +20,7 @@ const createProductSchema = z.object({
     images: z.array(z.string()).optional(),
     imageAlt: z.string().optional(),
     stock: z.number().int().min(0).default(0),
+    weight: z.number().int().min(0).default(500), // in grams
     isActive: z.boolean().default(true),
 });
 
@@ -45,6 +46,7 @@ router.get('/', async (req: Request, res: Response) => {
             image: products.image,
             imageAlt: products.imageAlt,
             stock: products.stock,
+            weight: products.weight,
             isActive: products.isActive,
             createdAt: products.createdAt,
         }).from(products)

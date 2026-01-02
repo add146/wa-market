@@ -2,6 +2,16 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../atoms'
 import { useCart } from '../../context'
 
+const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'
+
+// Get full image URL (handle local uploads)
+const getImageUrl = (image) => {
+    if (!image) return '/placeholder-product.png'
+    if (image.startsWith('/uploads')) return `${API_BASE}${image}`
+    if (image.startsWith('http')) return image
+    return image
+}
+
 /**
  * CartDropdown - Mini cart dropdown on hover
  */
@@ -38,8 +48,8 @@ function CartDropdown() {
                     <div key={item.id} className="flex gap-3 p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                         {/* Image */}
                         <div
-                            className="w-12 h-12 rounded-lg bg-cover bg-center flex-shrink-0"
-                            style={{ backgroundImage: `url('${item.image}')` }}
+                            className="w-12 h-12 rounded-lg bg-cover bg-center flex-shrink-0 bg-gray-100 dark:bg-gray-700"
+                            style={{ backgroundImage: `url('${getImageUrl(item.image)}')` }}
                         />
 
                         {/* Info */}

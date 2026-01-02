@@ -5,5 +5,4 @@ export { default as CartPage } from './CartPage'
 export { default as CheckoutPage } from './CheckoutPage'
 export { default as AdminDashboardPage } from './AdminDashboardPage'
 export { default as AdminNotFoundPage } from './AdminNotFoundPage'
-
-
+export { default as MyOrdersPage } from './MyOrdersPage'

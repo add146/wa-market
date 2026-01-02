@@ -12,7 +12,9 @@ const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'))
 const CartPage = lazy(() => import('./pages/CartPage'))
 const CheckoutPage = lazy(() => import('./pages/CheckoutPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const UnauthorizedPage = lazy(() => import('./pages/UnauthorizedPage'))
+const MyOrdersPage = lazy(() => import('./pages/MyOrdersPage'))
 
 // Admin pages
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'))
@@ -25,6 +27,8 @@ const AdminReviewsPage = lazy(() => import('./pages/AdminReviewsPage'))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
 const AdminSettingsPage = lazy(() => import('./pages/AdminSettingsPage'))
 const AdminAnalyticsPage = lazy(() => import('./pages/AdminAnalyticsPage'))
+const AdminBannersPage = lazy(() => import('./pages/AdminBannersPage'))
+const AdminCustomersPage = lazy(() => import('./pages/AdminCustomersPage'))
 const AdminNotFoundPage = lazy(() => import('./pages/AdminNotFoundPage'))
 
 function App() {
@@ -36,6 +40,14 @@ function App() {
                 element={
                     <Suspense fallback={<LoadingState />}>
                         <LoginPage />
+                    </Suspense>
+                }
+            />
+            <Route
+                path="/register"
+                element={
+                    <Suspense fallback={<LoadingState />}>
+                        <RegisterPage />
                     </Suspense>
                 }
             />
@@ -78,6 +90,11 @@ function App() {
                                             <AdminAnalyticsPage />
                                         </ProtectedRoute>
                                     } />
+                                    <Route path="banners" element={
+                                        <ProtectedRoute requiredRole="seller" redirectTo="/unauthorized">
+                                            <AdminBannersPage />
+                                        </ProtectedRoute>
+                                    } />
 
                                     {/* Admin routes - Admin only */}
                                     <Route path="verifications" element={
@@ -88,6 +105,11 @@ function App() {
                                     <Route path="users" element={
                                         <ProtectedRoute requiredRole="admin" redirectTo="/unauthorized">
                                             <AdminUsersPage />
+                                        </ProtectedRoute>
+                                    } />
+                                    <Route path="customers" element={
+                                        <ProtectedRoute requiredRole="admin" redirectTo="/unauthorized">
+                                            <AdminCustomersPage />
                                         </ProtectedRoute>
                                     } />
                                     <Route path="categories" element={
@@ -150,6 +172,16 @@ function App() {
                 element={
                     <Suspense fallback={<LoadingState />}>
                         <CheckoutPage />
+                    </Suspense>
+                }
+            />
+
+            {/* My Orders - Customer can view their orders */}
+            <Route
+                path="/my-orders"
+                element={
+                    <Suspense fallback={<LoadingState />}>
+                        <MyOrdersPage />
                     </Suspense>
                 }
             />

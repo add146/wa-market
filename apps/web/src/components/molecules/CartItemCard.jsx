@@ -1,5 +1,15 @@
 import { Icon, CartQuantityStepper } from '../atoms'
 
+const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'
+
+// Get full image URL (handle local uploads)
+const getImageUrl = (image) => {
+    if (!image) return '/placeholder-product.png'
+    if (image.startsWith('/uploads')) return `${API_BASE}${image}`
+    if (image.startsWith('http')) return image
+    return image
+}
+
 /**
  * CartItemCard - Kartu item keranjang
  * Menampilkan gambar produk, info, harga, tombol hapus, dan stepper quantity
@@ -25,8 +35,8 @@ function CartItemCard({
             {/* Image */}
             <div className="shrink-0">
                 <div
-                    className="bg-center bg-no-repeat bg-cover rounded-lg size-[88px] border border-gray-100 dark:border-white/5 shadow-inner"
-                    style={{ backgroundImage: `url("${image}")` }}
+                    className="bg-center bg-no-repeat bg-cover rounded-lg size-[88px] border border-gray-100 dark:border-white/5 shadow-inner bg-gray-100 dark:bg-gray-700"
+                    style={{ backgroundImage: `url("${getImageUrl(image)}")` }}
                     role="img"
                     aria-label={name}
                 />

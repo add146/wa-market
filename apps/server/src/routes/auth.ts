@@ -13,6 +13,26 @@ import {
 
 const router = Router();
 
+/**
+ * Standardize phone number to Indonesian format (62)
+ * Removes leading 0 and adds 62 prefix if not present
+ */
+function standardizePhone(phone: string): string {
+    // Remove non-digit characters except +
+    let cleaned = phone.replace(/[^\d+]/g, '');
+    // Remove + prefix if present
+    cleaned = cleaned.replace(/^\+/, '');
+    // If starts with 0, replace with 62
+    if (cleaned.startsWith('0')) {
+        cleaned = '62' + cleaned.substring(1);
+    }
+    // If doesn't start with 62, add it
+    if (!cleaned.startsWith('62')) {
+        cleaned = '62' + cleaned;
+    }
+    return cleaned;
+}
+
 // Validation schemas
 const registerSchema = z.object({
     phone: z.string().min(10).max(20),
@@ -37,7 +57,9 @@ router.post('/register', async (req: Request, res: Response) => {
             return;
         }
 
-        const { phone, password, name } = validation.data;
+        const { password, name } = validation.data;
+        // Standardize phone number to 62 format
+        const phone = standardizePhone(validation.data.phone);
 
         // Check if phone already exists
         const existingUser = await db.select().from(users).where(eq(users.phone, phone));
@@ -86,7 +108,9 @@ router.post('/login', async (req: Request, res: Response) => {
             return;
         }
 
-        const { phone, password } = validation.data;
+        // Standardize phone number to 62 format
+        const phone = standardizePhone(validation.data.phone);
+        const { password } = validation.data;
 
         // Find user by phone
         const [user] = await db.select().from(users).where(eq(users.phone, phone));

@@ -3,13 +3,14 @@ import AdminHeader from '../components/organisms/AdminHeader'
 import StatCard from '../components/molecules/StatCard'
 import { Icon } from '../components/atoms'
 import { useAuth } from '../context'
-import { useOrders, useProducts } from '../hooks'
+import { useOrders, useProducts, useSetting } from '../hooks'
 
 /**
  * AdminDashboardPage - Main dashboard with role-based content
  */
 function AdminDashboardPage() {
     const { user, isAdmin, isSeller } = useAuth()
+    const { data: storeName } = useSetting('store_name')
 
     // Fetch data from API with safe access
     const ordersQuery = useOrders()
@@ -17,12 +18,12 @@ function AdminDashboardPage() {
 
     const ordersData = ordersQuery?.data
     const productsData = productsQuery?.data
-    const orders = Array.isArray(ordersData) ? ordersData : (ordersData?.data || [])
+    const orders = Array.isArray(ordersData) ? ordersData : (ordersData?.orders || [])
     const products = Array.isArray(productsData) ? productsData : (productsData?.products || productsData?.data || [])
 
     // Calculate stats with safe array access
     const pendingOrders = orders.filter(o => o?.status === 'pending').length
-    const completedOrders = orders.filter(o => o?.status === 'delivered').length
+    const completedOrders = orders.filter(o => o?.status === 'completed' || o?.status === 'delivered').length
     const totalRevenue = orders
         .filter(o => o?.status === 'delivered')
         .reduce((sum, o) => sum + (o?.total || 0), 0)
@@ -37,7 +38,7 @@ function AdminDashboardPage() {
     return (
         <>
             <AdminHeader
-                title={`Selamat Datang, ${user?.name || 'User'}!`}
+                title={`Selamat Datang di ${storeName || 'TokoIndo'}!`}
                 subtitle={isAdmin ? 'Admin Dashboard' : isSeller ? 'Seller Dashboard' : 'Dashboard Saya'}
             />
 
@@ -105,7 +106,7 @@ function AdminDashboardPage() {
                                 {orders.slice(0, 5).map(order => (
                                     <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                         <td className="px-6 py-4 text-sm font-medium text-slate-900 dark:text-white">
-                                            #{order.id?.slice(0, 8)}
+                                            #{order.orderNumber || order.id?.slice(0, 8)}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
                                             {order.guestName || order.recipientName || 'Guest'}

@@ -1,9 +1,13 @@
 import { Icon, Input } from '../atoms'
+import { useSetting } from '../../hooks/useSettings'
 
 /**
  * SearchBar - Search input with icon
  */
-function SearchBar({ placeholder = 'Cari barang di TokoIndo...', value, onChange }) {
+function SearchBar({ value, onChange }) {
+    const { data: storeName } = useSetting('store_name')
+    const placeholder = `Cari barang di ${storeName || 'TokoIndo'}...`
+
     return (
         <div className="flex max-w-[600px] flex-1">
             <Input

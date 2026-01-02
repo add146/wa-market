@@ -1,26 +1,18 @@
-import { useState } from 'react'
 import { CategoryChip } from '../molecules'
 
-const categories = [
-    { id: 'all', label: 'Semua', icon: null },
-    { id: 'electronics', label: 'Elektronik', icon: 'devices' },
-    { id: 'fashion-pria', label: 'Fashion Pria', icon: 'styler' },
-    { id: 'wanita', label: 'Wanita', icon: 'woman' },
-    { id: 'makanan', label: 'Makanan', icon: 'restaurant' },
-    { id: 'hobi', label: 'Hobi & Mainan', icon: 'sports_esports' },
-    { id: 'rumah-tangga', label: 'Rumah Tangga', icon: 'home' },
-]
-
 /**
- * CategoryChips - Horizontal scrollable category filters
+ * CategoryChips - Horizontal scrollable category filters (dynamic from API)
  */
-function CategoryChips({ onCategoryChange }) {
-    const [activeCategory, setActiveCategory] = useState('all')
-
-    const handleClick = (categoryId) => {
-        setActiveCategory(categoryId)
-        onCategoryChange?.(categoryId)
-    }
+function CategoryChips({ categories = [], selectedCategory, onCategoryChange }) {
+    // Build category list with "Semua" as first option
+    const categoryList = [
+        { id: 'all', name: 'Semua', icon: 'apps' },
+        ...(categories || []).map(cat => ({
+            id: cat.id,
+            name: cat.name,
+            icon: cat.icon || 'category'
+        }))
+    ]
 
     return (
         <div className="flex w-full flex-col gap-3">
@@ -28,13 +20,13 @@ function CategoryChips({ onCategoryChange }) {
                 Kategori Pilihan
             </h3>
             <div className="no-scrollbar flex w-full gap-3 overflow-x-auto pb-2">
-                {categories.map((category) => (
+                {categoryList.map((category) => (
                     <CategoryChip
                         key={category.id}
-                        label={category.label}
+                        label={category.name}
                         icon={category.icon}
-                        isActive={activeCategory === category.id}
-                        onClick={() => handleClick(category.id)}
+                        isActive={selectedCategory === category.id || (category.id === 'all' && !selectedCategory)}
+                        onClick={() => onCategoryChange?.(category.id)}
                     />
                 ))}
             </div>

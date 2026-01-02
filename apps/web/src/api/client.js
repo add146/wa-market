@@ -26,8 +26,14 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         const message = error.response?.data?.error || error.message || 'Terjadi kesalahan';
-        console.error('API Error:', message);
-        return Promise.reject(new Error(message));
+        const details = error.response?.data?.details;
+        console.error('API Error:', message, details ? details : '');
+
+        // Create error with response attached for detailed handling
+        const err = new Error(message);
+        err.response = error.response;
+        err.details = details;
+        return Promise.reject(err);
     }
 );
 
@@ -90,4 +96,32 @@ export const authApi = {
 
 export const reviewsApi = {
     getByProduct: (productId) => api.get(`/reviews/product/${productId}`),
+};
+
+export const uploadApi = {
+    upload: async (file) => {
+        const formData = new FormData();
+        formData.append('image', file);
+        return api.post('/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
+    uploadMultiple: async (files) => {
+        const formData = new FormData();
+        files.forEach(file => formData.append('images', file));
+        return api.post('/upload/multiple', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
+    delete: (filename) => api.delete(`/upload/${filename}`),
+};
+
+// RajaOngkir Shipping API
+export const rajaongkirApi = {
+    searchDestination: (keyword) => api.get(`/shipping/search-destination?keyword=${encodeURIComponent(keyword)}`),
+    getProvinces: () => api.get('/shipping/provinces'),
+    getCities: (provinceId) => api.get(`/shipping/cities/${provinceId}`),
+    getDistricts: (cityId) => api.get(`/shipping/districts/${cityId}`),
+    calculateCost: (data) => api.post('/shipping/calculate', data),
+    getCouriers: () => api.get('/shipping/couriers'),
 };

@@ -1,26 +1,26 @@
+import { useState } from 'react'
 import { HeroBanner, CategoryChips, ProductGrid, Footer } from '../components/organisms'
 import { useProducts, useCategories } from '../hooks'
+import { useSearch } from '../context'
 import LoadingState from '../components/atoms/LoadingState'
 
 /**
  * HomePage - Main landing page with all sections
  */
 function HomePage() {
-    // Fetch products from API
     const { data: productsData, isLoading, isError, error } = useProducts()
     const { data: categories } = useCategories()
+    const { searchQuery } = useSearch()
+    const [selectedCategory, setSelectedCategory] = useState(null)
 
     const handleCategoryChange = (categoryId) => {
-        console.log('Category changed:', categoryId)
-        // Future: Filter products by category
+        setSelectedCategory(categoryId === 'all' ? null : categoryId)
     }
 
-    // Show loading state
     if (isLoading) {
         return <LoadingState />
     }
 
-    // Show error state
     if (isError) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -43,10 +43,11 @@ function HomePage() {
         )
     }
 
-    // Transform API data to match component props
-    const products = productsData?.products?.map(p => ({
+    // Transform API data
+    const allProducts = productsData?.products?.map(p => ({
         id: p.id,
         name: p.name,
+        categoryId: p.categoryId,
         category: categories?.find(c => c.id === p.categoryId)?.name || 'Lainnya',
         price: p.price,
         originalPrice: p.originalPrice,
@@ -55,18 +56,28 @@ function HomePage() {
         imageAlt: p.imageAlt || p.name,
     })) || []
 
+    // Filter by search query
+    let products = searchQuery
+        ? allProducts.filter(p =>
+            p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.category.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        : allProducts
+
+    // Filter by selected category
+    if (selectedCategory) {
+        products = products.filter(p => p.categoryId === selectedCategory)
+    }
+
     return (
         <>
-            {/* Hero Banner Section */}
             <HeroBanner />
-
-            {/* Category Chips */}
-            <CategoryChips onCategoryChange={handleCategoryChange} />
-
-            {/* Product Grid */}
+            <CategoryChips
+                categories={categories}
+                selectedCategory={selectedCategory}
+                onCategoryChange={handleCategoryChange}
+            />
             <ProductGrid products={products} />
-
-            {/* Footer */}
             <Footer />
         </>
     )

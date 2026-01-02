@@ -5,6 +5,7 @@ import { Icon, Button } from '../atoms'
  */
 function OrderSummary({
     subtotal,
+    totalWeight,
     productDiscount,
     couponDiscount,
     shippingCost,
@@ -31,6 +32,19 @@ function OrderSummary({
                             {subtotal}
                         </span>
                     </div>
+
+                    {/* Total Weight */}
+                    {totalWeight && (
+                        <div className="flex justify-between items-center text-text-main-light/70 dark:text-gray-400">
+                            <span className="flex items-center gap-1">
+                                <Icon name="scale" size={16} />
+                                Total Berat
+                            </span>
+                            <span className="font-medium text-text-main-light dark:text-white">
+                                {totalWeight}
+                            </span>
+                        </div>
+                    )}
 
                     {/* Product Discount */}
                     {productDiscount && (

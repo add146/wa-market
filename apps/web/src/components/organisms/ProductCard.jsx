@@ -2,12 +2,16 @@ import { Link } from 'react-router-dom'
 import { Icon, Badge } from '../atoms'
 import { ProductPrice } from '../molecules'
 import { useCart } from '../../context'
+import { useSetting } from '../../hooks/useSettings'
+
+const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'
 
 /**
  * ProductCard - Individual product card
  */
 function ProductCard({ product }) {
     const { addToCart } = useCart()
+    const { data: whatsappKasir } = useSetting('whatsapp_kasir')
 
     const {
         id,
@@ -15,10 +19,22 @@ function ProductCard({ product }) {
         category,
         price,
         originalPrice,
-        discount,
         image,
         imageAlt,
     } = product
+
+    // Calculate discount percentage from originalPrice and price
+    const discountPercent = originalPrice && originalPrice > price
+        ? Math.round(((originalPrice - price) / originalPrice) * 100)
+        : null
+
+    // Get full image URL (handle local uploads)
+    const getImageUrl = () => {
+        if (image?.startsWith('/uploads')) {
+            return `${API_BASE}${image}`
+        }
+        return image || ''
+    }
 
     const handleAddToCart = (e) => {
         e.preventDefault()
@@ -29,9 +45,10 @@ function ProductCard({ product }) {
     const handleBuyClick = (e) => {
         e.preventDefault()
         e.stopPropagation()
-        // WhatsApp integration
+        // WhatsApp integration - send to kasir
+        const waNumber = whatsappKasir || '6281234567891'
         const message = encodeURIComponent(`Halo, saya tertarik dengan produk: ${name} - Rp ${price.toLocaleString('id-ID')}`)
-        window.open(`https://wa.me/?text=${message}`, '_blank')
+        window.open(`https://wa.me/${waNumber}?text=${message}`, '_blank')
     }
 
     return (
@@ -43,7 +60,7 @@ function ProductCard({ product }) {
             <div className="relative aspect-[4/4] w-full overflow-hidden bg-gray-100">
                 <div
                     className="h-full w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
-                    style={{ backgroundImage: `url('${image}')` }}
+                    style={{ backgroundImage: `url('${getImageUrl()}')` }}
                     role="img"
                     aria-label={imageAlt || name}
                 />
@@ -57,12 +74,12 @@ function ProductCard({ product }) {
                     <Icon name="add_shopping_cart" size={18} />
                 </button>
 
-                {discount && (
+                {discountPercent && (
                     <Badge
                         variant="discount"
                         className="absolute right-2 top-2"
                     >
-                        -{discount}%
+                        -{discountPercent}%
                     </Badge>
                 )}
             </div>

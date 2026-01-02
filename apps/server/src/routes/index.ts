@@ -9,3 +9,6 @@ export { default as inventoryRoutes } from './inventory';
 export { default as settingsRoutes } from './settings';
 export { default as shippingRoutes } from './shipping';
 export { default as couponsRoutes } from './coupons';
+export { default as uploadRoutes } from './upload';
+export { default as shippingApiRoutes } from './shipping-api';
+export { default as usersRoutes } from './users';
