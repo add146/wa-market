@@ -8,7 +8,7 @@ import {
 } from '../components/organisms'
 import { Icon } from '../components/atoms'
 import { useCreateOrder, useValidateCoupon, useSetting } from '../hooks'
-import { rajaongkirApi, productsApi } from '../api/client'
+import api, { rajaongkirApi, productsApi } from '../api/client'
 import { useCart, useAuth } from '../context'
 
 /**
@@ -21,6 +21,10 @@ function CheckoutPage() {
     const { items: cartItems, clearCart } = useCart()
     const { user } = useAuth()
     const { data: whatsappKasir } = useSetting('whatsapp_kasir')
+    const { data: rajaongkirEnabled, isLoading: loadingRajaongkirSetting } = useSetting('rajaongkir_enabled')
+
+    // Check if RajaOngkir is enabled
+    const isRajaOngkirEnabled = rajaongkirEnabled === 'true' || rajaongkirEnabled === true
 
     // Order mutation
     const createOrder = useCreateOrder()
@@ -67,6 +71,11 @@ function CheckoutPage() {
     // Error state
     const [submitError, setSubmitError] = useState('')
 
+    // Shipping discount state
+    const [shippingDiscountOptions, setShippingDiscountOptions] = useState([])
+    const [fixedCostOptions, setFixedCostOptions] = useState([])
+    const [shippingDiscount, setShippingDiscount] = useState(0)
+
     // Enriched cart items with fresh weights from API
     const [productWeights, setProductWeights] = useState({})
 
@@ -112,7 +121,51 @@ function CheckoutPage() {
     // Shipping cost from selected courier
     const shippingCost = selectedCourier?.cost || 0
     const uniqueCode = 123
-    const total = subtotal - couponDiscount + shippingCost + uniqueCode
+    const total = subtotal - couponDiscount + shippingCost - shippingDiscount + uniqueCode
+
+    // Fetch shipping options to get discount/potongan ongkir and fixed cost options
+    useEffect(() => {
+        const fetchShippingOptions = async () => {
+            try {
+                const response = await api.get('/shipping-options')
+                const options = response.data?.data || response.data || []
+                // Filter 'free' type (potongan ongkir)
+                const discountOptions = options.filter(opt => opt.type === 'free' && opt.isActive)
+                setShippingDiscountOptions(discountOptions)
+                // Filter 'fixed' type (fixed cost shipping)
+                const fixedOptions = options.filter(opt => opt.type === 'fixed' && opt.isActive)
+                setFixedCostOptions(fixedOptions)
+            } catch (err) {
+                console.log('Could not fetch shipping options:', err)
+            }
+        }
+        fetchShippingOptions()
+    }, [])
+
+    // Calculate shipping discount based on subtotal
+    useEffect(() => {
+        if (shippingDiscountOptions.length === 0 || !selectedCourier) {
+            setShippingDiscount(0)
+            return
+        }
+
+        // Find the best applicable discount
+        let bestDiscount = 0
+        for (const option of shippingDiscountOptions) {
+            const minPurchase = option.minPurchaseForFree || 0
+            const discountAmount = option.fixedCost || 0 // Using fixedCost for discount amount
+
+            if (subtotal >= minPurchase) {
+                // If discountAmount is 0, it means free shipping
+                if (discountAmount === 0) {
+                    bestDiscount = Math.max(bestDiscount, shippingCost)
+                } else {
+                    bestDiscount = Math.max(bestDiscount, Math.min(discountAmount, shippingCost))
+                }
+            }
+        }
+        setShippingDiscount(bestDiscount)
+    }, [shippingDiscountOptions, subtotal, shippingCost, selectedCourier])
 
     // Debounced destination search
     const searchDestination = useCallback(async (keyword) => {
@@ -161,8 +214,16 @@ function CheckoutPage() {
         setCouriers([])
 
         try {
+            // Use id if available, fallback to subdistrict_id for compatibility
+            const destinationId = selectedDestination.id || selectedDestination.subdistrict_id
+            if (!destinationId) {
+                setShippingError('ID tujuan tidak ditemukan. Silakan pilih ulang tujuan pengiriman.')
+                setIsLoadingShipping(false)
+                return
+            }
+
             const response = await rajaongkirApi.calculateCost({
-                destination: selectedDestination.id,
+                destination: destinationId,
                 weight: totalWeight || 1000
             })
 
@@ -298,81 +359,83 @@ function CheckoutPage() {
                                 </div>
                             </div>
 
-                            {/* Destination Search */}
-                            <div className="relative">
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tujuan Pengiriman</label>
-                                <p className="text-xs text-slate-400 mb-2">Ketik nama kota/kecamatan untuk mencari</p>
+                            {/* Destination Search - Only show if RajaOngkir is enabled */}
+                            {isRajaOngkirEnabled && (
                                 <div className="relative">
-                                    <input
-                                        type="text"
-                                        value={destinationSearch}
-                                        onChange={(e) => {
-                                            setDestinationSearch(e.target.value)
-                                            setShowDestinationResults(true)
-                                            setSelectedDestination(null)
-                                            setCouriers([])
-                                            setSelectedCourier(null)
-                                        }}
-                                        onFocus={() => !selectedDestination && setShowDestinationResults(true)}
-                                        placeholder="Contoh: Bandung, Surabaya, Bekasi..."
-                                        className={inputClass}
-                                    />
-                                    {loadingDestinationSearch && (
-                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">⏳</span>
-                                    )}
-                                </div>
-
-                                {/* Destination Results Dropdown */}
-                                {showDestinationResults && destinationResults.length > 0 && (
-                                    <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
-                                        {destinationResults.map((dest, idx) => (
-                                            <button
-                                                key={idx}
-                                                type="button"
-                                                onClick={() => handleSelectDestination(dest)}
-                                                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-0"
-                                            >
-                                                <p className="font-medium text-slate-900 dark:text-white">{dest.subdistrict_name}</p>
-                                                <p className="text-sm text-slate-500">{dest.district_name}, {dest.city_name}, {dest.province_name}</p>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* Selected Destination */}
-                                {selectedDestination && (
-                                    <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg flex justify-between items-center">
-                                        <div>
-                                            <p className="text-sm font-medium text-green-700 dark:text-green-400">✓ {selectedDestination.subdistrict_name}</p>
-                                            <p className="text-xs text-green-600 dark:text-green-500">{selectedDestination.district_name}, {selectedDestination.city_name}, {selectedDestination.province_name}</p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tujuan Pengiriman</label>
+                                    <p className="text-xs text-slate-400 mb-2">Ketik nama kota/kecamatan untuk mencari</p>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            value={destinationSearch}
+                                            onChange={(e) => {
+                                                setDestinationSearch(e.target.value)
+                                                setShowDestinationResults(true)
                                                 setSelectedDestination(null)
-                                                setDestinationSearch('')
                                                 setCouriers([])
                                                 setSelectedCourier(null)
                                             }}
-                                            className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded bg-white dark:bg-slate-700"
-                                        >
-                                            Ubah
-                                        </button>
+                                            onFocus={() => !selectedDestination && setShowDestinationResults(true)}
+                                            placeholder="Contoh: Bandung, Surabaya, Bekasi..."
+                                            className={inputClass}
+                                        />
+                                        {loadingDestinationSearch && (
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">⏳</span>
+                                        )}
                                     </div>
-                                )}
-                            </div>
 
-                            {/* Cek Ongkir Button */}
-                            {selectedDestination && (
-                                <button
-                                    type="button"
-                                    onClick={calculateShipping}
-                                    disabled={isLoadingShipping}
-                                    className="w-full py-3 bg-primary/10 text-primary font-semibold rounded-xl hover:bg-primary/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                                >
-                                    <Icon name="local_shipping" size={20} />
-                                    {isLoadingShipping ? 'Menghitung ongkir...' : 'Cek Ongkos Kirim'}
-                                </button>
+                                    {/* Destination Results Dropdown */}
+                                    {showDestinationResults && destinationResults.length > 0 && (
+                                        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                                            {destinationResults.map((dest, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    type="button"
+                                                    onClick={() => handleSelectDestination(dest)}
+                                                    className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-0"
+                                                >
+                                                    <p className="font-medium text-slate-900 dark:text-white">{dest.subdistrict_name}</p>
+                                                    <p className="text-sm text-slate-500">{dest.district_name}, {dest.city_name}, {dest.province_name}</p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Selected Destination */}
+                                    {selectedDestination && (
+                                        <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg flex justify-between items-center">
+                                            <div>
+                                                <p className="text-sm font-medium text-green-700 dark:text-green-400">✓ {selectedDestination.subdistrict_name}</p>
+                                                <p className="text-xs text-green-600 dark:text-green-500">{selectedDestination.district_name}, {selectedDestination.city_name}, {selectedDestination.province_name}</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedDestination(null)
+                                                    setDestinationSearch('')
+                                                    setCouriers([])
+                                                    setSelectedCourier(null)
+                                                }}
+                                                className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded bg-white dark:bg-slate-700"
+                                            >
+                                                Ubah
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Cek Ongkir Button */}
+                                    {selectedDestination && (
+                                        <button
+                                            type="button"
+                                            onClick={calculateShipping}
+                                            disabled={isLoadingShipping}
+                                            className="w-full py-3 bg-primary/10 text-primary font-semibold rounded-xl hover:bg-primary/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            <Icon name="local_shipping" size={20} />
+                                            {isLoadingShipping ? 'Menghitung ongkir...' : 'Cek Ongkos Kirim'}
+                                        </button>
+                                    )}
+                                </div>
                             )}
 
                             <div>
@@ -382,12 +445,55 @@ function CheckoutPage() {
                         </div>
                     </div>
 
-                    {/* Courier Selection */}
+                    {/* Fixed Cost Shipping Options */}
+                    {fixedCostOptions.length > 0 && (
+                        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                                <Icon name="local_shipping" size={20} className="text-primary" />
+                                Pilih Pengiriman
+                            </h3>
+                            <div className="space-y-3">
+                                {fixedCostOptions.map((option) => (
+                                    <button
+                                        key={`fixed-${option.id}`}
+                                        type="button"
+                                        onClick={() => setSelectedCourier({
+                                            id: `fixed-${option.id}`,
+                                            name: option.name,
+                                            service: 'Fixed',
+                                            description: option.estimation || option.description || '',
+                                            cost: option.fixedCost || 0,
+                                            etd: option.estimation || '-',
+                                            isFixed: true
+                                        })}
+                                        className={`w-full p-4 rounded-xl border-2 transition-all text-left ${selectedCourier?.id === `fixed-${option.id}`
+                                            ? 'border-primary bg-primary/5'
+                                            : 'border-slate-200 dark:border-slate-600 hover:border-primary/50'
+                                            }`}
+                                    >
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="font-semibold text-slate-900 dark:text-white">
+                                                    {option.name}
+                                                </p>
+                                                <p className="text-sm text-slate-500">{option.estimation || option.description || 'Ongkir tetap'}</p>
+                                            </div>
+                                            <p className="font-bold text-primary">
+                                                Rp {(option.fixedCost || 0).toLocaleString('id-ID')}
+                                            </p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* RajaOngkir Courier Selection */}
                     {couriers.length > 0 && (
                         <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
                             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                                 <Icon name="local_shipping" size={20} className="text-primary" />
-                                Pilih Kurir
+                                Kurir RajaOngkir
                             </h3>
                             <div className="space-y-3">
                                 {couriers.map((courier) => (
@@ -460,10 +566,11 @@ function CheckoutPage() {
                             productDiscount={null}
                             couponDiscount={couponDiscount > 0 ? `Rp ${couponDiscount.toLocaleString('id-ID')}` : null}
                             shippingCost={shippingCost === 0 ? 'Pilih kurir' : `Rp ${shippingCost.toLocaleString('id-ID')}`}
+                            shippingDiscount={shippingDiscount > 0 ? `Rp ${shippingDiscount.toLocaleString('id-ID')}` : null}
                             shippingName={selectedCourier ? `${selectedCourier.name} - ${selectedCourier.service}` : 'Pilih Kurir'}
                             uniqueCode={`Rp ${uniqueCode}`}
                             total={`Rp ${total.toLocaleString('id-ID')}`}
-                            totalSavings={couponDiscount > 0 ? `Rp ${couponDiscount.toLocaleString('id-ID')}` : null}
+                            totalSavings={(couponDiscount + shippingDiscount) > 0 ? `Rp ${(couponDiscount + shippingDiscount).toLocaleString('id-ID')}` : null}
                             onCheckout={handleCheckout}
                             isLoading={createOrder.isPending}
                         />

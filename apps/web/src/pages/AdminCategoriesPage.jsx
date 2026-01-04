@@ -3,11 +3,13 @@ import AdminHeader from '../components/organisms/AdminHeader'
 import { Icon, Modal } from '../components/atoms'
 import { useCategories } from '../hooks'
 import { categoriesApi } from '../api/client'
+import { useToast } from '../context'
 
 /**
  * AdminCategoriesPage - Category management for admins
  */
 function AdminCategoriesPage() {
+    const toast = useToast()
     const categoriesQuery = useCategories()
     const categories = Array.isArray(categoriesQuery?.data)
         ? categoriesQuery.data
@@ -24,6 +26,11 @@ function AdminCategoriesPage() {
         description: ''
     })
     const [isSaving, setIsSaving] = useState(false)
+
+    // Delete confirmation modal state
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [categoryToDelete, setCategoryToDelete] = useState(null)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     const openAddModal = () => {
         setEditingCategory(null)
@@ -69,14 +76,29 @@ function AdminCategoriesPage() {
         }
     }
 
-    const handleDelete = async (id) => {
-        if (confirm('Yakin ingin menghapus kategori ini?')) {
-            try {
-                await categoriesApi.delete(id)
-                refetch?.()
-            } catch (err) {
-                alert('Gagal menghapus kategori')
-            }
+    // Open delete confirmation modal
+    const openDeleteModal = (category) => {
+        setCategoryToDelete(category)
+        setShowDeleteModal(true)
+    }
+
+    // Confirm delete action
+    const confirmDelete = async () => {
+        if (!categoryToDelete) return
+
+        setIsDeleting(true)
+        try {
+            await categoriesApi.delete(categoryToDelete.id)
+            toast.success('Kategori berhasil dihapus!')
+            setShowDeleteModal(false)
+            setCategoryToDelete(null)
+            refetch?.()
+        } catch (err) {
+            console.error('Delete category error:', err)
+            const errorMsg = err.response?.data?.error || err.message || 'Gagal menghapus kategori'
+            toast.error(errorMsg)
+        } finally {
+            setIsDeleting(false)
         }
     }
 
@@ -140,7 +162,7 @@ function AdminCategoriesPage() {
                                                 Edit
                                             </button>
                                             <button
-                                                onClick={() => handleDelete(cat.id)}
+                                                onClick={() => openDeleteModal(cat)}
                                                 className="text-red-500 hover:text-red-600 text-sm font-medium"
                                             >
                                                 Hapus
@@ -229,6 +251,43 @@ function AdminCategoriesPage() {
                         </button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={showDeleteModal}
+                onClose={() => { setShowDeleteModal(false); setCategoryToDelete(null) }}
+                title="Hapus Kategori"
+            >
+                <div className="text-center py-4">
+                    <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Icon name="delete" size={32} className="text-red-500" />
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 mb-2">
+                        Yakin ingin menghapus kategori <strong>"{categoryToDelete?.name}"</strong>?
+                    </p>
+                    <p className="text-sm text-slate-500">
+                        Tindakan ini tidak dapat dibatalkan.
+                    </p>
+                </div>
+                <div className="flex gap-3 pt-4">
+                    <button
+                        type="button"
+                        onClick={() => { setShowDeleteModal(false); setCategoryToDelete(null) }}
+                        disabled={isDeleting}
+                        className="flex-1 py-3 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="button"
+                        onClick={confirmDelete}
+                        disabled={isDeleting}
+                        className="flex-1 py-3 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 transition-colors disabled:opacity-50"
+                    >
+                        {isDeleting ? 'Menghapus...' : 'Hapus'}
+                    </button>
+                </div>
             </Modal>
         </>
     )

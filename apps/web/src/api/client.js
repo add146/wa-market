@@ -29,6 +29,17 @@ api.interceptors.response.use(
         const details = error.response?.data?.details;
         console.error('API Error:', message, details ? details : '');
 
+        // Handle 401 Unauthorized - clear stale token and redirect to login
+        if (error.response?.status === 401) {
+            console.log('Session expired or invalid - clearing token');
+            localStorage.removeItem('auth_token');
+            // Only redirect to login if not already on login page
+            if (!window.location.pathname.includes('/login')) {
+                alert('Sesi Anda telah berakhir. Silakan login kembali.');
+                window.location.href = '/login';
+            }
+        }
+
         // Create error with response attached for detailed handling
         const err = new Error(message);
         err.response = error.response;

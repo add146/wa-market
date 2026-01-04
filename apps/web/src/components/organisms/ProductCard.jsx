@@ -45,10 +45,9 @@ function ProductCard({ product }) {
     const handleBuyClick = (e) => {
         e.preventDefault()
         e.stopPropagation()
-        // WhatsApp integration - send to kasir
-        const waNumber = whatsappKasir || '6281234567891'
-        const message = encodeURIComponent(`Halo, saya tertarik dengan produk: ${name} - Rp ${price.toLocaleString('id-ID')}`)
-        window.open(`https://wa.me/${waNumber}?text=${message}`, '_blank')
+        // Add to cart and go to checkout
+        addToCart(product, 1)
+        window.location.href = '/checkout'
     }
 
     return (
@@ -64,15 +63,6 @@ function ProductCard({ product }) {
                     role="img"
                     aria-label={imageAlt || name}
                 />
-
-                {/* Quick Add to Cart Button */}
-                <button
-                    onClick={handleAddToCart}
-                    className="absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 dark:bg-gray-800/90 text-primary hover:bg-primary hover:text-white transition-all shadow-md opacity-0 group-hover:opacity-100"
-                    title="Tambah ke keranjang"
-                >
-                    <Icon name="add_shopping_cart" size={18} />
-                </button>
 
                 {discountPercent && (
                     <Badge

@@ -78,11 +78,28 @@ function ProductDetailPage() {
 
     const productColors = product.variants
         ?.filter(v => v.type === 'color')
-        .map(v => ({ value: v.value, hex: v.hexCode || '#000000' })) || []
+        .map(v => ({ value: v.value, hex: v.hexCode || '#000000', priceAdjustment: v.priceAdjustment || 0 })) || []
 
     const productSizes = product.variants
         ?.filter(v => v.type === 'size')
-        .map(v => v.value) || []
+        .map(v => ({ value: v.value, priceAdjustment: v.priceAdjustment || 0 })) || []
+
+    // Calculate adjusted price based on selected variants
+    const getVariantPriceAdjustment = () => {
+        let adjustment = 0
+        if (selectedColor) {
+            const colorVariant = productColors.find(c => c.value === selectedColor)
+            if (colorVariant) adjustment += colorVariant.priceAdjustment
+        }
+        if (selectedSize) {
+            const sizeVariant = productSizes.find(s => s.value === selectedSize)
+            if (sizeVariant) adjustment += sizeVariant.priceAdjustment
+        }
+        return adjustment
+    }
+    const priceAdjustment = getVariantPriceAdjustment()
+    const adjustedPrice = product.price + priceAdjustment
+    const adjustedOriginalPrice = product.originalPrice ? product.originalPrice + priceAdjustment : null
 
     const shippingInfoOptions = shippingOptions?.map(opt => ({
         name: opt.name,
@@ -140,8 +157,8 @@ function ProductDetailPage() {
 
                     {/* Price */}
                     <PriceDisplay
-                        originalPrice={product.originalPrice}
-                        discountedPrice={product.price}
+                        originalPrice={adjustedOriginalPrice}
+                        discountedPrice={adjustedPrice}
                         discountPercent={product.discount}
                     />
 
@@ -151,7 +168,7 @@ function ProductDetailPage() {
                             colors={productColors}
                             sizes={productSizes}
                             selectedColor={selectedColor || productColors[0]?.value}
-                            selectedSize={selectedSize || productSizes[0]}
+                            selectedSize={selectedSize || productSizes[0]?.value}
                             onColorChange={setSelectedColor}
                             onSizeChange={setSelectedSize}
                         />

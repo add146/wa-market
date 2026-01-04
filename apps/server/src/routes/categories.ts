@@ -12,6 +12,7 @@ const categorySchema = z.object({
     slug: z.string().min(2).max(50),
     name: z.string().min(2).max(100),
     icon: z.string().max(50).optional(),
+    description: z.string().max(500).optional(),
 });
 
 /**
@@ -116,8 +117,14 @@ router.delete('/:id', authMiddleware, adminMiddleware, async (req: Request, res:
         }
 
         res.json({ message: 'Category deleted successfully' });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Delete category error:', error);
+        // Check for foreign key constraint error
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes('foreign key') || errorMessage.includes('violates') || errorMessage.includes('constraint')) {
+            res.status(400).json({ error: 'Tidak dapat menghapus kategori karena masih ada produk yang menggunakan kategori ini' });
+            return;
+        }
         res.status(500).json({ error: 'Internal server error' });
     }
 });

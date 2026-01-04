@@ -16,6 +16,12 @@ function AdminUsersPage() {
     const [newPassword, setNewPassword] = useState('')
     const [actionLoading, setActionLoading] = useState(null)
 
+    // Confirmation modals state
+    const [showRoleModal, setShowRoleModal] = useState(false)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [userToAction, setUserToAction] = useState(null)
+    const [pendingRole, setPendingRole] = useState('')
+
     // Fetch users
     const fetchUsers = async () => {
         try {
@@ -42,12 +48,22 @@ function AdminUsersPage() {
         }
     }
 
-    const handleRoleChange = async (userId, newRole) => {
-        if (!confirm(`Ubah role pengguna ini menjadi ${newRole}?`)) return
-        setActionLoading(userId)
+    // Open role change confirmation modal
+    const openRoleModal = (user, newRole) => {
+        setUserToAction(user)
+        setPendingRole(newRole)
+        setShowRoleModal(true)
+    }
+
+    // Confirm role change action
+    const confirmRoleChange = async () => {
+        if (!userToAction) return
+        setActionLoading(userToAction.id)
         try {
-            await api.patch(`/users/${userId}/role`, { role: newRole })
+            await api.patch(`/users/${userToAction.id}/role`, { role: pendingRole })
             toast.success('Role berhasil diubah!')
+            setShowRoleModal(false)
+            setUserToAction(null)
             fetchUsers()
         } catch (err) {
             toast.error('Gagal mengubah role')
@@ -79,12 +95,21 @@ function AdminUsersPage() {
         }
     }
 
-    const handleDelete = async (userId) => {
-        if (!confirm('Yakin ingin menghapus pengguna ini?')) return
-        setActionLoading(userId)
+    // Open delete confirmation modal
+    const openDeleteModal = (user) => {
+        setUserToAction(user)
+        setShowDeleteModal(true)
+    }
+
+    // Confirm delete action
+    const confirmDelete = async () => {
+        if (!userToAction) return
+        setActionLoading(userToAction.id)
         try {
-            await api.delete(`/users/${userId}`)
+            await api.delete(`/users/${userToAction.id}`)
             toast.success('Pengguna berhasil dihapus')
+            setShowDeleteModal(false)
+            setUserToAction(null)
             fetchUsers()
         } catch (err) {
             toast.error(err.message || 'Gagal menghapus pengguna')
@@ -149,7 +174,7 @@ function AdminUsersPage() {
                                         <td className="px-6 py-4">
                                             <select
                                                 value={user.role || 'customer'}
-                                                onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                                onChange={(e) => openRoleModal(user, e.target.value)}
                                                 disabled={actionLoading === user.id}
                                                 className={`px-2.5 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${getRoleColor(user.role)} disabled:opacity-50`}
                                             >
@@ -171,7 +196,7 @@ function AdminUsersPage() {
                                                     Reset Password
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(user.id)}
+                                                    onClick={() => openDeleteModal(user)}
                                                     disabled={actionLoading === user.id}
                                                     className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
                                                 >
@@ -222,6 +247,77 @@ function AdminUsersPage() {
                             {actionLoading ? 'Menyimpan...' : 'Reset Password'}
                         </button>
                     </div>
+                </div>
+            </Modal>
+
+            {/* Role Change Confirmation Modal */}
+            <Modal
+                isOpen={showRoleModal}
+                onClose={() => { setShowRoleModal(false); setUserToAction(null) }}
+                title="Ubah Role Pengguna"
+            >
+                <div className="text-center py-4">
+                    <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Icon name="manage_accounts" size={32} className="text-purple-500" />
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 mb-2">
+                        Ubah role <strong>"{userToAction?.name}"</strong> menjadi <strong>{pendingRole}</strong>?
+                    </p>
+                </div>
+                <div className="flex gap-3 pt-4">
+                    <button
+                        type="button"
+                        onClick={() => { setShowRoleModal(false); setUserToAction(null) }}
+                        disabled={actionLoading}
+                        className="flex-1 py-3 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="button"
+                        onClick={confirmRoleChange}
+                        disabled={actionLoading}
+                        className="flex-1 py-3 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 transition-colors disabled:opacity-50"
+                    >
+                        {actionLoading ? 'Mengubah...' : 'Ubah Role'}
+                    </button>
+                </div>
+            </Modal>
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={showDeleteModal}
+                onClose={() => { setShowDeleteModal(false); setUserToAction(null) }}
+                title="Hapus Pengguna"
+            >
+                <div className="text-center py-4">
+                    <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Icon name="delete" size={32} className="text-red-500" />
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 mb-2">
+                        Yakin ingin menghapus pengguna <strong>"{userToAction?.name}"</strong>?
+                    </p>
+                    <p className="text-sm text-slate-500">
+                        Tindakan ini tidak dapat dibatalkan.
+                    </p>
+                </div>
+                <div className="flex gap-3 pt-4">
+                    <button
+                        type="button"
+                        onClick={() => { setShowDeleteModal(false); setUserToAction(null) }}
+                        disabled={actionLoading}
+                        className="flex-1 py-3 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="button"
+                        onClick={confirmDelete}
+                        disabled={actionLoading}
+                        className="flex-1 py-3 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 transition-colors disabled:opacity-50"
+                    >
+                        {actionLoading ? 'Menghapus...' : 'Hapus'}
+                    </button>
                 </div>
             </Modal>
         </>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import AdminHeader from '../components/organisms/AdminHeader'
 import { Icon, Modal } from '../components/atoms'
 import api from '../api/client'
+import { useToast } from '../context'
 
 /**
  * AdminCouponsPage - Coupon management for admins
@@ -13,13 +14,20 @@ function AdminCouponsPage() {
     const [editingCoupon, setEditingCoupon] = useState(null)
     const [formData, setFormData] = useState({
         code: '',
-        type: 'percentage',
-        value: '',
-        minOrderAmount: '',
-        maxUsage: '',
+        discountType: 'percentage',
+        discountValue: '',
+        minPurchase: '',
+        usageLimit: '',
         isActive: true
     })
     const [isSaving, setIsSaving] = useState(false)
+
+    // Delete confirmation modal state
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [couponToDelete, setCouponToDelete] = useState(null)
+    const [isDeleting, setIsDeleting] = useState(false)
+
+    const toast = useToast()
 
     const fetchCoupons = async () => {
         try {
@@ -40,10 +48,10 @@ function AdminCouponsPage() {
         setEditingCoupon(null)
         setFormData({
             code: '',
-            type: 'percentage',
-            value: '',
-            minOrderAmount: '',
-            maxUsage: '',
+            discountType: 'percentage',
+            discountValue: '',
+            minPurchase: '',
+            usageLimit: '',
             isActive: true
         })
         setShowModal(true)
@@ -53,10 +61,10 @@ function AdminCouponsPage() {
         setEditingCoupon(coupon)
         setFormData({
             code: coupon.code || '',
-            type: coupon.type || 'percentage',
-            value: coupon.value?.toString() || '',
-            minOrderAmount: coupon.minOrderAmount?.toString() || '',
-            maxUsage: coupon.maxUsage?.toString() || '',
+            discountType: coupon.discountType || 'percentage',
+            discountValue: coupon.discountValue?.toString() || '',
+            minPurchase: coupon.minPurchase?.toString() || '',
+            usageLimit: coupon.usageLimit?.toString() || '',
             isActive: coupon.isActive ?? true
         })
         setShowModal(true)
@@ -69,10 +77,10 @@ function AdminCouponsPage() {
         try {
             const payload = {
                 code: formData.code.toUpperCase(),
-                type: formData.type,
-                value: parseFloat(formData.value) || 0,
-                minOrderAmount: parseFloat(formData.minOrderAmount) || 0,
-                maxUsage: parseInt(formData.maxUsage) || null,
+                discountType: formData.discountType,
+                discountValue: parseFloat(formData.discountValue) || 0,
+                minPurchase: parseFloat(formData.minPurchase) || 0,
+                usageLimit: parseInt(formData.usageLimit) || null,
                 isActive: formData.isActive
             }
 
@@ -91,14 +99,29 @@ function AdminCouponsPage() {
         }
     }
 
-    const handleDelete = async (id) => {
-        if (confirm('Yakin ingin menghapus kupon ini?')) {
-            try {
-                await api.delete(`/coupons/${id}`)
-                fetchCoupons()
-            } catch (err) {
-                alert('Gagal menghapus kupon')
-            }
+    // Open delete confirmation modal
+    const openDeleteModal = (coupon) => {
+        setCouponToDelete(coupon)
+        setShowDeleteModal(true)
+    }
+
+    // Confirm delete action
+    const confirmDelete = async () => {
+        if (!couponToDelete) return
+
+        setIsDeleting(true)
+        try {
+            await api.delete(`/coupons/${couponToDelete.id}`)
+            toast.success('Kupon berhasil dihapus!')
+            setShowDeleteModal(false)
+            setCouponToDelete(null)
+            fetchCoupons()
+        } catch (err) {
+            console.error('Delete coupon error:', err)
+            const errorMsg = err.response?.data?.error || err.message || 'Gagal menghapus kupon'
+            toast.error(errorMsg)
+        } finally {
+            setIsDeleting(false)
         }
     }
 
@@ -151,16 +174,16 @@ function AdminCouponsPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-sm font-semibold text-slate-900 dark:text-white">
-                                            {coupon.type === 'percentage'
-                                                ? `${coupon.value}%`
-                                                : `Rp ${(coupon.value || 0).toLocaleString('id-ID')}`
+                                            {coupon.discountType === 'percentage'
+                                                ? `${coupon.discountValue}%`
+                                                : `Rp ${(coupon.discountValue || 0).toLocaleString('id-ID')}`
                                             }
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-500">
-                                            Rp {(coupon.minOrderAmount || 0).toLocaleString('id-ID')}
+                                            Rp {(coupon.minPurchase || 0).toLocaleString('id-ID')}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-500">
-                                            {coupon.usedCount || 0} / {coupon.maxUsage || '∞'}
+                                            {coupon.usedCount || 0} / {coupon.usageLimit || '∞'}
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${coupon.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
@@ -176,7 +199,7 @@ function AdminCouponsPage() {
                                                 Edit
                                             </button>
                                             <button
-                                                onClick={() => handleDelete(coupon.id)}
+                                                onClick={() => openDeleteModal(coupon)}
                                                 className="text-red-500 hover:text-red-600 text-sm font-medium"
                                             >
                                                 Hapus
@@ -217,8 +240,8 @@ function AdminCouponsPage() {
                                 Tipe Diskon
                             </label>
                             <select
-                                value={formData.type}
-                                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                value={formData.discountType}
+                                onChange={(e) => setFormData({ ...formData, discountType: e.target.value })}
                                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
                             >
                                 <option value="percentage">Persentase (%)</option>
@@ -231,10 +254,10 @@ function AdminCouponsPage() {
                             </label>
                             <input
                                 type="number"
-                                value={formData.value}
-                                onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                                value={formData.discountValue}
+                                onChange={(e) => setFormData({ ...formData, discountValue: e.target.value })}
                                 required
-                                placeholder={formData.type === 'percentage' ? '10' : '50000'}
+                                placeholder={formData.discountType === 'percentage' ? '10' : '50000'}
                                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
                             />
                         </div>
@@ -247,8 +270,8 @@ function AdminCouponsPage() {
                             </label>
                             <input
                                 type="number"
-                                value={formData.minOrderAmount}
-                                onChange={(e) => setFormData({ ...formData, minOrderAmount: e.target.value })}
+                                value={formData.minPurchase}
+                                onChange={(e) => setFormData({ ...formData, minPurchase: e.target.value })}
                                 placeholder="100000"
                                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
                             />
@@ -259,8 +282,8 @@ function AdminCouponsPage() {
                             </label>
                             <input
                                 type="number"
-                                value={formData.maxUsage}
-                                onChange={(e) => setFormData({ ...formData, maxUsage: e.target.value })}
+                                value={formData.usageLimit}
+                                onChange={(e) => setFormData({ ...formData, usageLimit: e.target.value })}
                                 placeholder="Tidak terbatas"
                                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
                             />
@@ -297,6 +320,43 @@ function AdminCouponsPage() {
                         </button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={showDeleteModal}
+                onClose={() => { setShowDeleteModal(false); setCouponToDelete(null) }}
+                title="Hapus Kupon"
+            >
+                <div className="text-center py-4">
+                    <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Icon name="delete" size={32} className="text-red-500" />
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 mb-2">
+                        Yakin ingin menghapus kupon <strong className="font-mono">"{couponToDelete?.code}"</strong>?
+                    </p>
+                    <p className="text-sm text-slate-500">
+                        Tindakan ini tidak dapat dibatalkan.
+                    </p>
+                </div>
+                <div className="flex gap-3 pt-4">
+                    <button
+                        type="button"
+                        onClick={() => { setShowDeleteModal(false); setCouponToDelete(null) }}
+                        disabled={isDeleting}
+                        className="flex-1 py-3 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="button"
+                        onClick={confirmDelete}
+                        disabled={isDeleting}
+                        className="flex-1 py-3 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 transition-colors disabled:opacity-50"
+                    >
+                        {isDeleting ? 'Menghapus...' : 'Hapus'}
+                    </button>
+                </div>
             </Modal>
         </>
     )

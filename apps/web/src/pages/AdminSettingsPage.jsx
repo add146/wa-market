@@ -129,139 +129,161 @@ function AdminSettingsPage() {
                                 RajaOngkir (Ongkos Kirim)
                             </h3>
                             <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">API Key RajaOngkir</label>
-                                    <input type="password" value={settings.rajaongkir_api_key || ''} onChange={(e) => handleChange('rajaongkir_api_key', e.target.value)} placeholder="Masukkan API Key dari rajaongkir.com" className={inputClass} />
-                                    <p className="text-xs text-slate-400 mt-1">Dapatkan API Key di <a href="https://rajaongkir.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">rajaongkir.com</a></p>
+                                {/* Enable/Disable Toggle */}
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                                    <div>
+                                        <p className="font-medium text-slate-900 dark:text-white">Aktifkan RajaOngkir</p>
+                                        <p className="text-xs text-slate-500">Jika dinonaktifkan, opsi kurir RajaOngkir tidak muncul di checkout</p>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={settings.rajaongkir_enabled === 'true' || settings.rajaongkir_enabled === true}
+                                            onChange={(e) => handleChange('rajaongkir_enabled', e.target.checked ? 'true' : 'false')}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-primary"></div>
+                                    </label>
                                 </div>
 
-                                {/* Origin Location Search */}
-                                {settings.rajaongkir_api_key && (
-                                    <div className="relative">
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Lokasi Asal Pengiriman</label>
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                value={originSearch}
-                                                onChange={async (e) => {
-                                                    setOriginSearch(e.target.value)
-                                                    setShowOriginResults(true)
-                                                    setSelectedOrigin(null)
-
-                                                    if (e.target.value.length >= 3) {
-                                                        setLoadingOriginSearch(true)
-                                                        try {
-                                                            const response = await rajaongkirApi.searchDestination(e.target.value)
-                                                            setOriginResults(response.data?.data || [])
-                                                        } catch (err) {
-                                                            console.error('Search error:', err)
-                                                            setOriginResults([])
-                                                        } finally {
-                                                            setLoadingOriginSearch(false)
-                                                        }
-                                                    } else {
-                                                        setOriginResults([])
-                                                    }
-                                                }}
-                                                onFocus={() => setShowOriginResults(true)}
-                                                placeholder="Ketik nama kota/kecamatan (min 3 huruf)..."
-                                                className={inputClass}
-                                            />
-                                            {loadingOriginSearch && (
-                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">⏳</span>
-                                            )}
+                                {/* Only show API settings if enabled */}
+                                {(settings.rajaongkir_enabled === 'true' || settings.rajaongkir_enabled === true) && (
+                                    <>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">API Key RajaOngkir</label>
+                                            <input type="password" value={settings.rajaongkir_api_key || ''} onChange={(e) => handleChange('rajaongkir_api_key', e.target.value)} placeholder="Masukkan API Key dari rajaongkir.com" className={inputClass} />
+                                            <p className="text-xs text-slate-400 mt-1">Dapatkan API Key di <a href="https://rajaongkir.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">rajaongkir.com</a></p>
                                         </div>
 
-                                        {/* Search Results Dropdown */}
-                                        {showOriginResults && originResults.length > 0 && (
-                                            <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
-                                                {originResults.map((loc, idx) => (
-                                                    <button
-                                                        key={idx}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setSelectedOrigin(loc)
-                                                            setOriginSearch(loc.label)
-                                                            setShowOriginResults(false)
-                                                            handleChange('rajaongkir_origin_city', String(loc.id))
-                                                            handleChange('rajaongkir_origin_city_name', loc.label)
+                                        {/* Origin Location Search */}
+                                        {settings.rajaongkir_api_key && (
+                                            <div className="relative">
+                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Lokasi Asal Pengiriman</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type="text"
+                                                        value={originSearch}
+                                                        onChange={async (e) => {
+                                                            setOriginSearch(e.target.value)
+                                                            setShowOriginResults(true)
+                                                            setSelectedOrigin(null)
+
+                                                            if (e.target.value.length >= 3) {
+                                                                setLoadingOriginSearch(true)
+                                                                try {
+                                                                    const response = await rajaongkirApi.searchDestination(e.target.value)
+                                                                    setOriginResults(response.data?.data || [])
+                                                                } catch (err) {
+                                                                    console.error('Search error:', err)
+                                                                    setOriginResults([])
+                                                                } finally {
+                                                                    setLoadingOriginSearch(false)
+                                                                }
+                                                            } else {
+                                                                setOriginResults([])
+                                                            }
                                                         }}
-                                                        className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-0"
-                                                    >
-                                                        <p className="font-medium text-slate-900 dark:text-white text-sm">{loc.subdistrict_name}</p>
-                                                        <p className="text-xs text-slate-500">{loc.district_name}, {loc.city_name}, {loc.province_name}</p>
-                                                    </button>
-                                                ))}
+                                                        onFocus={() => setShowOriginResults(true)}
+                                                        placeholder="Ketik nama kota/kecamatan (min 3 huruf)..."
+                                                        className={inputClass}
+                                                    />
+                                                    {loadingOriginSearch && (
+                                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">⏳</span>
+                                                    )}
+                                                </div>
+
+                                                {/* Search Results Dropdown */}
+                                                {showOriginResults && originResults.length > 0 && (
+                                                    <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                                                        {originResults.map((loc, idx) => (
+                                                            <button
+                                                                key={idx}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSelectedOrigin(loc)
+                                                                    setOriginSearch(loc.label)
+                                                                    setShowOriginResults(false)
+                                                                    handleChange('rajaongkir_origin_city', String(loc.id))
+                                                                    handleChange('rajaongkir_origin_city_name', loc.label)
+                                                                }}
+                                                                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-0"
+                                                            >
+                                                                <p className="font-medium text-slate-900 dark:text-white text-sm">{loc.subdistrict_name}</p>
+                                                                <p className="text-xs text-slate-500">{loc.district_name}, {loc.city_name}, {loc.province_name}</p>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* Selected Origin */}
+                                                {selectedOrigin && (
+                                                    <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                                        <p className="text-sm text-green-700 dark:text-green-400">✓ Asal: {selectedOrigin.label}</p>
+                                                    </div>
+                                                )}
+
+                                                {/* Saved Origin */}
+                                                {settings.rajaongkir_origin_city_name && !selectedOrigin && (
+                                                    <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                                        <p className="text-sm text-green-700 dark:text-green-400">✓ Tersimpan: {settings.rajaongkir_origin_city_name}</p>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
 
-                                        {/* Selected Origin */}
-                                        {selectedOrigin && (
-                                            <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                                                <p className="text-sm text-green-700 dark:text-green-400">✓ Asal: {selectedOrigin.label}</p>
+                                        {/* Courier Selection */}
+                                        {settings.rajaongkir_api_key && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Kurir yang Tersedia</label>
+                                                <p className="text-xs text-slate-400 mb-3">Pilih kurir yang ingin ditampilkan saat checkout</p>
+                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                    {[
+                                                        { code: 'jne', name: 'JNE' },
+                                                        { code: 'sicepat', name: 'SiCepat' },
+                                                        { code: 'jnt', name: 'J&T Express' },
+                                                        { code: 'pos', name: 'POS Indonesia' },
+                                                        { code: 'tiki', name: 'TIKI' },
+                                                        { code: 'anteraja', name: 'AnterAja' },
+                                                        { code: 'ninja', name: 'Ninja Express' },
+                                                        { code: 'lion', name: 'Lion Parcel' },
+                                                        { code: 'ide', name: 'ID Express' },
+                                                    ].map((courier) => {
+                                                        const selectedCouriers = (settings.rajaongkir_couriers || 'jne:sicepat:jnt').split(':')
+                                                        const isSelected = selectedCouriers.includes(courier.code)
+                                                        return (
+                                                            <label
+                                                                key={courier.code}
+                                                                className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${isSelected
+                                                                    ? 'border-primary bg-primary/10 text-primary'
+                                                                    : 'border-slate-200 dark:border-slate-600 hover:border-primary/50'
+                                                                    }`}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={(e) => {
+                                                                        let newCouriers = [...selectedCouriers]
+                                                                        if (e.target.checked) {
+                                                                            newCouriers.push(courier.code)
+                                                                        } else {
+                                                                            newCouriers = newCouriers.filter(c => c !== courier.code)
+                                                                        }
+                                                                        // Ensure at least one courier is selected
+                                                                        if (newCouriers.length === 0) {
+                                                                            newCouriers = ['jne']
+                                                                        }
+                                                                        handleChange('rajaongkir_couriers', newCouriers.join(':'))
+                                                                    }}
+                                                                    className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
+                                                                />
+                                                                <span className="text-sm font-medium">{courier.name}</span>
+                                                            </label>
+                                                        )
+                                                    })}
+                                                </div>
                                             </div>
                                         )}
-
-                                        {/* Saved Origin */}
-                                        {settings.rajaongkir_origin_city_name && !selectedOrigin && (
-                                            <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                                                <p className="text-sm text-green-700 dark:text-green-400">✓ Tersimpan: {settings.rajaongkir_origin_city_name}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Courier Selection */}
-                                {settings.rajaongkir_api_key && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Kurir yang Tersedia</label>
-                                        <p className="text-xs text-slate-400 mb-3">Pilih kurir yang ingin ditampilkan saat checkout</p>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                            {[
-                                                { code: 'jne', name: 'JNE' },
-                                                { code: 'sicepat', name: 'SiCepat' },
-                                                { code: 'jnt', name: 'J&T Express' },
-                                                { code: 'pos', name: 'POS Indonesia' },
-                                                { code: 'tiki', name: 'TIKI' },
-                                                { code: 'anteraja', name: 'AnterAja' },
-                                                { code: 'ninja', name: 'Ninja Express' },
-                                                { code: 'lion', name: 'Lion Parcel' },
-                                                { code: 'ide', name: 'ID Express' },
-                                            ].map((courier) => {
-                                                const selectedCouriers = (settings.rajaongkir_couriers || 'jne:sicepat:jnt').split(':')
-                                                const isSelected = selectedCouriers.includes(courier.code)
-                                                return (
-                                                    <label
-                                                        key={courier.code}
-                                                        className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${isSelected
-                                                            ? 'border-primary bg-primary/10 text-primary'
-                                                            : 'border-slate-200 dark:border-slate-600 hover:border-primary/50'
-                                                            }`}
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isSelected}
-                                                            onChange={(e) => {
-                                                                let newCouriers = [...selectedCouriers]
-                                                                if (e.target.checked) {
-                                                                    newCouriers.push(courier.code)
-                                                                } else {
-                                                                    newCouriers = newCouriers.filter(c => c !== courier.code)
-                                                                }
-                                                                // Ensure at least one courier is selected
-                                                                if (newCouriers.length === 0) {
-                                                                    newCouriers = ['jne']
-                                                                }
-                                                                handleChange('rajaongkir_couriers', newCouriers.join(':'))
-                                                            }}
-                                                            className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
-                                                        />
-                                                        <span className="text-sm font-medium">{courier.name}</span>
-                                                    </label>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -272,14 +294,69 @@ function AdminSettingsPage() {
                                 <Icon name="palette" size={20} />
                                 Tema
                             </h3>
-                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Primary</label>
-                                    <input type="color" value={settings.theme_primary || '#10b981'} onChange={(e) => handleChange('theme_primary', e.target.value)} className="w-full h-10 rounded-lg cursor-pointer" />
+
+                            {/* Preset Theme Buttons */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Pilih Tema</label>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {[
+                                        { name: 'Emerald', primary: '#10b981', accent: '#f97316' },
+                                        { name: 'Ocean', primary: '#0ea5e9', accent: '#f59e0b' },
+                                        { name: 'Sunset', primary: '#f97316', accent: '#ef4444' },
+                                        { name: 'Purple', primary: '#8b5cf6', accent: '#ec4899' },
+                                        { name: 'Rose', primary: '#f43f5e', accent: '#fb923c' },
+                                        { name: 'Amber', primary: '#f59e0b', accent: '#84cc16' },
+                                        { name: 'Teal', primary: '#14b8a6', accent: '#6366f1' },
+                                        { name: 'Slate', primary: '#64748b', accent: '#06b6d4' },
+                                    ].map((preset) => {
+                                        const isActive = settings.theme_primary === preset.primary && settings.theme_accent === preset.accent
+                                        return (
+                                            <button
+                                                key={preset.name}
+                                                type="button"
+                                                onClick={() => {
+                                                    handleChange('theme_primary', preset.primary)
+                                                    handleChange('theme_accent', preset.accent)
+                                                }}
+                                                className={`relative p-2 rounded-lg border-2 transition-all ${isActive
+                                                    ? 'border-slate-900 dark:border-white ring-2 ring-offset-2 ring-slate-900 dark:ring-white'
+                                                    : 'border-slate-200 dark:border-slate-600 hover:border-slate-400'
+                                                    }`}
+                                            >
+                                                <div className="flex gap-1 mb-1">
+                                                    <div
+                                                        className="w-6 h-6 rounded-full"
+                                                        style={{ backgroundColor: preset.primary }}
+                                                    />
+                                                    <div
+                                                        className="w-6 h-6 rounded-full"
+                                                        style={{ backgroundColor: preset.accent }}
+                                                    />
+                                                </div>
+                                                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">{preset.name}</span>
+                                                {isActive && (
+                                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
+                                                        <Icon name="check" size={12} className="text-white" />
+                                                    </span>
+                                                )}
+                                            </button>
+                                        )
+                                    })}
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Accent</label>
-                                    <input type="color" value={settings.theme_accent || '#f97316'} onChange={(e) => handleChange('theme_accent', e.target.value)} className="w-full h-10 rounded-lg cursor-pointer" />
+                            </div>
+
+                            {/* Custom Color Picker */}
+                            <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Atau Pilih Warna Kustom</label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Primary</label>
+                                        <input type="color" value={settings.theme_primary || '#10b981'} onChange={(e) => handleChange('theme_primary', e.target.value)} className="w-full h-10 rounded-lg cursor-pointer" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Accent</label>
+                                        <input type="color" value={settings.theme_accent || '#f97316'} onChange={(e) => handleChange('theme_accent', e.target.value)} className="w-full h-10 rounded-lg cursor-pointer" />
+                                    </div>
                                 </div>
                             </div>
                         </div>

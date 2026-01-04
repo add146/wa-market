@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import AdminHeader from '../components/organisms/AdminHeader'
 import { Icon, Modal } from '../components/atoms'
 import api from '../api/client'
+import { useToast } from '../context'
 
 /**
  * AdminReviewsPage - Review management for admins
@@ -18,6 +19,13 @@ function AdminReviewsPage() {
         comment: ''
     })
     const [isSaving, setIsSaving] = useState(false)
+
+    // Delete confirmation modal state
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [reviewToDelete, setReviewToDelete] = useState(null)
+    const [isDeleting, setIsDeleting] = useState(false)
+
+    const toast = useToast()
 
     const fetchReviews = async () => {
         try {
@@ -83,14 +91,28 @@ function AdminReviewsPage() {
         }
     }
 
-    const handleDelete = async (id) => {
-        if (confirm('Yakin ingin menghapus ulasan ini?')) {
-            try {
-                await api.delete(`/reviews/${id}`)
-                fetchReviews()
-            } catch (err) {
-                alert('Gagal menghapus')
-            }
+    // Open delete confirmation modal
+    const openDeleteModal = (review) => {
+        setReviewToDelete(review)
+        setShowDeleteModal(true)
+    }
+
+    // Confirm delete action
+    const confirmDelete = async () => {
+        if (!reviewToDelete) return
+
+        setIsDeleting(true)
+        try {
+            await api.delete(`/reviews/${reviewToDelete.id}`)
+            toast.success('Ulasan berhasil dihapus!')
+            setShowDeleteModal(false)
+            setReviewToDelete(null)
+            fetchReviews()
+        } catch (err) {
+            console.error('Delete review error:', err)
+            toast.error(err.response?.data?.error || 'Gagal menghapus')
+        } finally {
+            setIsDeleting(false)
         }
     }
 
@@ -164,7 +186,7 @@ function AdminReviewsPage() {
                                             <Icon name="edit" size={18} />
                                         </button>
                                         <button
-                                            onClick={() => handleDelete(review.id)}
+                                            onClick={() => openDeleteModal(review)}
                                             className="p-2 text-slate-400 hover:text-red-500 transition-colors"
                                         >
                                             <Icon name="delete" size={18} />
@@ -264,6 +286,43 @@ function AdminReviewsPage() {
                         </button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={showDeleteModal}
+                onClose={() => { setShowDeleteModal(false); setReviewToDelete(null) }}
+                title="Hapus Ulasan"
+            >
+                <div className="text-center py-4">
+                    <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Icon name="delete" size={32} className="text-red-500" />
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 mb-2">
+                        Yakin ingin menghapus ulasan dari <strong>"{reviewToDelete?.reviewerName}"</strong>?
+                    </p>
+                    <p className="text-sm text-slate-500">
+                        Tindakan ini tidak dapat dibatalkan.
+                    </p>
+                </div>
+                <div className="flex gap-3 pt-4">
+                    <button
+                        type="button"
+                        onClick={() => { setShowDeleteModal(false); setReviewToDelete(null) }}
+                        disabled={isDeleting}
+                        className="flex-1 py-3 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="button"
+                        onClick={confirmDelete}
+                        disabled={isDeleting}
+                        className="flex-1 py-3 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 transition-colors disabled:opacity-50"
+                    >
+                        {isDeleting ? 'Menghapus...' : 'Hapus'}
+                    </button>
+                </div>
             </Modal>
         </>
     )

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Icon } from '../components/atoms'
+import { Icon, Modal } from '../components/atoms'
 import { useAuth } from '../context'
 
 /**
@@ -8,11 +8,15 @@ import { useAuth } from '../context'
  */
 function ProfilePage() {
     const { user, logout } = useAuth()
+    const [showLogoutModal, setShowLogoutModal] = useState(false)
 
-    const handleLogout = () => {
-        if (confirm('Yakin ingin keluar?')) {
-            logout()
-        }
+    const openLogoutModal = () => {
+        setShowLogoutModal(true)
+    }
+
+    const confirmLogout = () => {
+        setShowLogoutModal(false)
+        logout()
     }
 
     const formatPhone = (phone) => {
@@ -162,7 +166,7 @@ function ProfilePage() {
                     </Link>
 
                     <button
-                        onClick={handleLogout}
+                        onClick={openLogoutModal}
                         className="w-full flex items-center gap-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                     >
                         <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
@@ -175,6 +179,38 @@ function ProfilePage() {
                     </button>
                 </div>
             </main>
+
+            {/* Logout Confirmation Modal */}
+            <Modal
+                isOpen={showLogoutModal}
+                onClose={() => setShowLogoutModal(false)}
+                title="Keluar dari Akun"
+            >
+                <div className="text-center py-4">
+                    <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Icon name="logout" size={32} className="text-red-500" />
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 mb-2">
+                        Yakin ingin keluar dari akun Anda?
+                    </p>
+                </div>
+                <div className="flex gap-3 pt-4">
+                    <button
+                        type="button"
+                        onClick={() => setShowLogoutModal(false)}
+                        className="flex-1 py-3 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="button"
+                        onClick={confirmLogout}
+                        className="flex-1 py-3 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 transition-colors"
+                    >
+                        Keluar
+                    </button>
+                </div>
+            </Modal>
         </div>
     )
 }

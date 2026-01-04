@@ -8,6 +8,15 @@ import { authMiddleware, adminMiddleware } from '../middleware';
 const router = Router();
 
 // Validation schemas
+const variantSchema = z.object({
+    id: z.string().uuid().optional(),
+    type: z.string().min(1).max(20), // 'color' | 'size' | 'model'
+    value: z.string().min(1).max(50),
+    hexCode: z.string().max(7).optional().nullable(),
+    stock: z.number().int().min(0).default(0),
+    priceAdjustment: z.number().int().default(0),
+});
+
 const createProductSchema = z.object({
     name: z.string().min(2).max(255),
     slug: z.string().min(2).max(255).optional(),
@@ -22,6 +31,7 @@ const createProductSchema = z.object({
     stock: z.number().int().min(0).default(0),
     weight: z.number().int().min(0).default(500), // in grams
     isActive: z.boolean().default(true),
+    variants: z.array(variantSchema).optional(),
 });
 
 const updateProductSchema = createProductSchema.partial();
@@ -163,11 +173,14 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req: Request, res: Re
             return;
         }
 
-        // Auto-generate slug from name if name is provided but slug is not
-        let updateData: any = { ...validation.data, updatedAt: new Date() };
+        // Extract variants from request (handle separately)
+        const { variants: variantsData, ...productData } = validation.data;
 
-        if (validation.data.name && !validation.data.slug) {
-            updateData.slug = validation.data.name.toLowerCase()
+        // Auto-generate slug from name if name is provided but slug is not
+        let updateData: any = { ...productData, updatedAt: new Date() };
+
+        if (productData.name && !productData.slug) {
+            updateData.slug = productData.name.toLowerCase()
                 .replace(/[^a-z0-9\s-]/g, '')
                 .replace(/\s+/g, '-')
                 .replace(/-+/g, '-')
@@ -175,8 +188,8 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req: Request, res: Re
         }
 
         // Use first image from images array if image is not provided
-        if (validation.data.images?.length && !validation.data.image) {
-            updateData.image = validation.data.images[0];
+        if (productData.images?.length && !productData.image) {
+            updateData.image = productData.images[0];
         }
 
         const [updated] = await db.update(products)
@@ -189,7 +202,45 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req: Request, res: Re
             return;
         }
 
-        res.json(updated);
+        // Sync variants if provided
+        if (variantsData !== undefined) {
+            // Delete existing variants
+            await db.delete(productVariants).where(eq(productVariants.productId, id));
+
+            // Insert new variants
+            if (variantsData && variantsData.length > 0) {
+                const variantsToInsert = variantsData.map(v => ({
+                    productId: id,
+                    type: v.type,
+                    value: v.value,
+                    hexCode: v.hexCode || null,
+                    stock: v.stock || 0,
+                    priceAdjustment: v.priceAdjustment || 0,
+                }));
+                await db.insert(productVariants).values(variantsToInsert);
+            }
+        }
+
+        // Sync images to productImages table if provided
+        if (productData.images && productData.images.length > 0) {
+            // Delete existing product images
+            await db.delete(productImages).where(eq(productImages.productId, id));
+
+            // Insert new images
+            const imagesToInsert = productData.images.map((url: string, index: number) => ({
+                productId: id,
+                url: url,
+                alt: `${productData.name || 'Product'} image ${index + 1}`,
+                sortOrder: index,
+            }));
+            await db.insert(productImages).values(imagesToInsert);
+        }
+
+        // Fetch updated product with variants and images
+        const updatedVariants = await db.select().from(productVariants).where(eq(productVariants.productId, id));
+        const updatedImages = await db.select().from(productImages).where(eq(productImages.productId, id)).orderBy(productImages.sortOrder);
+
+        res.json({ ...updated, variants: updatedVariants, images: updatedImages });
     } catch (error) {
         console.error('Update product error:', error);
         res.status(500).json({ error: 'Internal server error' });

@@ -9,6 +9,7 @@ function OrderSummary({
     productDiscount,
     couponDiscount,
     shippingCost,
+    shippingDiscount,
     shippingName,
     uniqueCode,
     total,
@@ -69,6 +70,17 @@ function OrderSummary({
                             {shippingCost}
                         </span>
                     </div>
+
+                    {/* Shipping Discount */}
+                    {shippingDiscount && (
+                        <div className="flex justify-between items-center text-green-600 dark:text-green-400">
+                            <span className="flex items-center gap-1">
+                                <Icon name="local_offer" size={16} />
+                                Potongan Ongkir
+                            </span>
+                            <span className="font-medium">- {shippingDiscount}</span>
+                        </div>
+                    )}
 
                     {/* Unique Code */}
                     <div className="flex justify-between items-center text-text-main-light/70 dark:text-gray-400">

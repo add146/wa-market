@@ -57,7 +57,20 @@ router.get('/search-destination', async (req: Request, res: Response) => {
             }
         });
 
-        const data = await response.json();
+        const data = await response.json() as RajaOngkirResponse;
+
+        // Normalize response to ensure 'id' and 'label' fields exist for frontend compatibility
+        // RajaOngkir search doesn't return subdistrict_id, so we use zip_code as the identifier
+        if (data?.data && Array.isArray(data.data)) {
+            data.data = data.data.map((item: { zip_code?: string; subdistrict_id?: string; subdistrict_name?: string; district_name?: string; city_name?: string; province_name?: string;[key: string]: unknown }) => ({
+                ...item,
+                // Use zip_code as the ID for cost calculation (RajaOngkir accepts zip_code as destination)
+                id: item.zip_code || item.subdistrict_id,
+                // Create a full label for display
+                label: `${item.subdistrict_name}, ${item.district_name}, ${item.city_name}, ${item.province_name}`
+            }));
+        }
+
         res.json(data);
     } catch (error) {
         console.error('RajaOngkir search error:', error);
@@ -138,7 +151,7 @@ router.get('/districts/:cityId', async (req: Request, res: Response) => {
 
 /**
  * POST /api/shipping/calculate
- * Calculate shipping cost using city_id as origin
+ * Calculate shipping cost using zip_code to lookup subdistrict_id first
  */
 router.post('/calculate', async (req: Request, res: Response) => {
     try {
@@ -162,12 +175,45 @@ router.post('/calculate', async (req: Request, res: Response) => {
             return;
         }
 
+        // First, try to get subdistrict_id by searching with the zip_code
+        let destinationId = destination;
+
+        // If destination looks like a zip_code (5 digits), search for the subdistrict_id
+        if (/^\d{5}$/.test(destination)) {
+            try {
+                const searchResponse = await fetch(`${RAJAONGKIR_BASE_URL}/destination/domestic-destination?search=${destination}`, {
+                    headers: { 'key': apiKey }
+                });
+                const searchData = await searchResponse.json() as { data?: Array<{ zip_code?: string; subdistrict_id?: string }> };
+
+                // Try to find a matching subdistrict_id from the search results
+                if (searchData?.data && Array.isArray(searchData.data) && searchData.data.length > 0) {
+                    // Find the exact match by zip_code
+                    const exactMatch = searchData.data.find((item: { zip_code?: string; subdistrict_id?: string }) =>
+                        item.zip_code === destination
+                    );
+                    if (exactMatch?.subdistrict_id) {
+                        destinationId = exactMatch.subdistrict_id;
+                    }
+                }
+            } catch (lookupError) {
+                console.log('Zip code lookup failed, using destination as-is:', lookupError);
+            }
+        }
+
         // Calculate shipping cost using form-urlencoded format
         const formData = new URLSearchParams();
         formData.append('origin', originCityId);
-        formData.append('destination', destination);
+        formData.append('destination', destinationId);
         formData.append('weight', String(weight));
         formData.append('courier', enabledCouriers);
+
+        console.log('RajaOngkir calculate request:', {
+            origin: originCityId,
+            destination: destinationId,
+            weight: String(weight),
+            courier: enabledCouriers
+        });
 
         const costResponse = await fetch(`${RAJAONGKIR_BASE_URL}/calculate/domestic-cost`, {
             method: 'POST',
@@ -179,6 +225,8 @@ router.post('/calculate', async (req: Request, res: Response) => {
         });
 
         const costData = await costResponse.json();
+        console.log('RajaOngkir calculate response:', JSON.stringify(costData).substring(0, 500));
+
         res.json(costData);
     } catch (error) {
         console.error('RajaOngkir calculate error:', error);

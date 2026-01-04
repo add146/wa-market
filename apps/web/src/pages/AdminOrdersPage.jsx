@@ -3,7 +3,7 @@ import AdminHeader from '../components/organisms/AdminHeader'
 import { Icon, Modal } from '../components/atoms'
 import { useOrders } from '../hooks'
 import { ordersApi } from '../api/client'
-import { useAuth } from '../context'
+import { useAuth, useToast } from '../context'
 
 /**
  * AdminOrdersPage - Order list with approve/delete actions (admin only)
@@ -20,6 +20,13 @@ function AdminOrdersPage() {
     const [selectedOrder, setSelectedOrder] = useState(null)
     const [showDetailModal, setShowDetailModal] = useState(false)
     const [actionLoading, setActionLoading] = useState(null)
+
+    // Confirmation modals state
+    const [showApproveModal, setShowApproveModal] = useState(false)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [orderToAction, setOrderToAction] = useState(null)
+
+    const toast = useToast()
 
     const filteredOrders = statusFilter === 'all'
         ? orders
@@ -47,27 +54,47 @@ function AdminOrdersPage() {
         }
     }
 
-    const handleApprove = async (orderId) => {
-        if (!confirm('Setujui pesanan ini?')) return
-        setActionLoading(orderId)
+    // Open approve confirmation modal
+    const openApproveModal = (order) => {
+        setOrderToAction(order)
+        setShowApproveModal(true)
+    }
+
+    // Confirm approve action
+    const confirmApprove = async () => {
+        if (!orderToAction) return
+        setActionLoading(orderToAction.id)
         try {
-            await ordersApi.approve(orderId)
+            await ordersApi.approve(orderToAction.id)
+            toast.success('Pesanan berhasil disetujui!')
+            setShowApproveModal(false)
+            setOrderToAction(null)
             refetch?.()
         } catch (error) {
-            alert('Gagal menyetujui pesanan: ' + (error.message || 'Unknown error'))
+            toast.error('Gagal menyetujui pesanan: ' + (error.message || 'Unknown error'))
         } finally {
             setActionLoading(null)
         }
     }
 
-    const handleDelete = async (orderId) => {
-        if (!confirm('Yakin ingin menghapus pesanan ini? Data tidak bisa dikembalikan.')) return
-        setActionLoading(orderId)
+    // Open delete confirmation modal
+    const openDeleteModal = (order) => {
+        setOrderToAction(order)
+        setShowDeleteModal(true)
+    }
+
+    // Confirm delete action
+    const confirmDelete = async () => {
+        if (!orderToAction) return
+        setActionLoading(orderToAction.id)
         try {
-            await ordersApi.delete(orderId)
+            await ordersApi.delete(orderToAction.id)
+            toast.success('Pesanan berhasil dihapus!')
+            setShowDeleteModal(false)
+            setOrderToAction(null)
             refetch?.()
         } catch (error) {
-            alert('Gagal menghapus pesanan: ' + (error.message || 'Unknown error'))
+            toast.error('Gagal menghapus pesanan: ' + (error.message || 'Unknown error'))
         } finally {
             setActionLoading(null)
         }
@@ -181,7 +208,7 @@ function AdminOrdersPage() {
 
                                             {isAdmin && order.status === 'pending' && (
                                                 <button
-                                                    onClick={() => handleApprove(order.id)}
+                                                    onClick={() => openApproveModal(order)}
                                                     disabled={actionLoading === order.id}
                                                     className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
                                                 >
@@ -196,7 +223,7 @@ function AdminOrdersPage() {
 
                                             {isAdmin && (
                                                 <button
-                                                    onClick={() => handleDelete(order.id)}
+                                                    onClick={() => openDeleteModal(order)}
                                                     disabled={actionLoading === order.id}
                                                     className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
                                                 >
@@ -314,6 +341,80 @@ function AdminOrdersPage() {
                         </div>
                     </div>
                 )}
+            </Modal>
+
+            {/* Approve Confirmation Modal */}
+            <Modal
+                isOpen={showApproveModal}
+                onClose={() => { setShowApproveModal(false); setOrderToAction(null) }}
+                title="Setujui Pesanan"
+            >
+                <div className="text-center py-4">
+                    <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Icon name="check_circle" size={32} className="text-green-500" />
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 mb-2">
+                        Setujui pesanan <strong>#{orderToAction?.orderNumber || orderToAction?.id?.slice(0, 8)}</strong>?
+                    </p>
+                    <p className="text-sm text-slate-500">
+                        Pesanan akan diproses dan customer akan mendapat notifikasi.
+                    </p>
+                </div>
+                <div className="flex gap-3 pt-4">
+                    <button
+                        type="button"
+                        onClick={() => { setShowApproveModal(false); setOrderToAction(null) }}
+                        disabled={actionLoading}
+                        className="flex-1 py-3 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="button"
+                        onClick={confirmApprove}
+                        disabled={actionLoading}
+                        className="flex-1 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                        {actionLoading ? 'Menyetujui...' : 'Setujui'}
+                    </button>
+                </div>
+            </Modal>
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={showDeleteModal}
+                onClose={() => { setShowDeleteModal(false); setOrderToAction(null) }}
+                title="Hapus Pesanan"
+            >
+                <div className="text-center py-4">
+                    <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Icon name="delete" size={32} className="text-red-500" />
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 mb-2">
+                        Yakin ingin menghapus pesanan <strong>#{orderToAction?.orderNumber || orderToAction?.id?.slice(0, 8)}</strong>?
+                    </p>
+                    <p className="text-sm text-slate-500">
+                        Data pesanan tidak dapat dikembalikan.
+                    </p>
+                </div>
+                <div className="flex gap-3 pt-4">
+                    <button
+                        type="button"
+                        onClick={() => { setShowDeleteModal(false); setOrderToAction(null) }}
+                        disabled={actionLoading}
+                        className="flex-1 py-3 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="button"
+                        onClick={confirmDelete}
+                        disabled={actionLoading}
+                        className="flex-1 py-3 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 transition-colors disabled:opacity-50"
+                    >
+                        {actionLoading ? 'Menghapus...' : 'Hapus'}
+                    </button>
+                </div>
             </Modal>
         </>
     )

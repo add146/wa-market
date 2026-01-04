@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import AdminHeader from '../components/organisms/AdminHeader'
 import { Icon, Modal } from '../components/atoms'
 import api from '../api/client'
+import { useToast } from '../context'
 
 /**
  * AdminShippingPage - Shipping options management for admins
@@ -16,9 +17,18 @@ function AdminShippingPage() {
         description: '',
         type: 'fixed',
         cost: '',
+        minPurchase: '',
+        discountAmount: '',
         isActive: true
     })
     const [isSaving, setIsSaving] = useState(false)
+
+    // Delete confirmation modal state
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [optionToDelete, setOptionToDelete] = useState(null)
+    const [isDeleting, setIsDeleting] = useState(false)
+
+    const toast = useToast()
 
     const fetchShipping = async () => {
         try {
@@ -42,6 +52,8 @@ function AdminShippingPage() {
             description: '',
             type: 'fixed',
             cost: '',
+            minPurchase: '',
+            discountAmount: '',
             isActive: true
         })
         setShowModal(true)
@@ -51,9 +63,11 @@ function AdminShippingPage() {
         setEditingOption(option)
         setFormData({
             name: option.name || '',
-            description: option.description || '',
+            description: option.estimation || option.description || '',
             type: option.type || 'fixed',
-            cost: option.cost?.toString() || '',
+            cost: option.fixedCost?.toString() || option.cost?.toString() || '',
+            minPurchase: option.minPurchaseForFree?.toString() || option.minPurchase?.toString() || '',
+            discountAmount: option.type === 'free' ? (option.fixedCost?.toString() || '') : '',
             isActive: option.isActive ?? true
         })
         setShowModal(true)
@@ -66,9 +80,10 @@ function AdminShippingPage() {
         try {
             const payload = {
                 name: formData.name,
-                description: formData.description,
+                estimation: formData.description,
                 type: formData.type,
-                cost: formData.type === 'free' ? 0 : (parseFloat(formData.cost) || 0),
+                fixedCost: formData.type === 'fixed' ? (parseFloat(formData.cost) || 0) : (formData.type === 'free' ? (parseFloat(formData.discountAmount) || 0) : 0),
+                minPurchaseForFree: formData.type === 'free' ? (parseFloat(formData.minPurchase) || 0) : 0,
                 isActive: formData.isActive
             }
 
@@ -87,14 +102,28 @@ function AdminShippingPage() {
         }
     }
 
-    const handleDelete = async (id) => {
-        if (confirm('Yakin ingin menghapus opsi pengiriman ini?')) {
-            try {
-                await api.delete(`/shipping-options/${id}`)
-                fetchShipping()
-            } catch (err) {
-                alert('Gagal menghapus')
-            }
+    // Open delete confirmation modal
+    const openDeleteModal = (option) => {
+        setOptionToDelete(option)
+        setShowDeleteModal(true)
+    }
+
+    // Confirm delete action
+    const confirmDelete = async () => {
+        if (!optionToDelete) return
+
+        setIsDeleting(true)
+        try {
+            await api.delete(`/shipping-options/${optionToDelete.id}`)
+            toast.success('Opsi pengiriman berhasil dihapus!')
+            setShowDeleteModal(false)
+            setOptionToDelete(null)
+            fetchShipping()
+        } catch (err) {
+            console.error('Delete shipping error:', err)
+            toast.error(err.response?.data?.error || 'Gagal menghapus')
+        } finally {
+            setIsDeleting(false)
         }
     }
 
@@ -102,7 +131,7 @@ function AdminShippingPage() {
         switch (type) {
             case 'api': return { label: 'API (RajaOngkir)', color: 'bg-blue-100 text-blue-800' }
             case 'fixed': return { label: 'Fixed Cost', color: 'bg-orange-100 text-orange-800' }
-            case 'free': return { label: 'Gratis', color: 'bg-green-100 text-green-800' }
+            case 'free': return { label: 'Potongan Ongkir', color: 'bg-green-100 text-green-800' }
             default: return { label: type, color: 'bg-gray-100 text-gray-800' }
         }
     }
@@ -157,8 +186,20 @@ function AdminShippingPage() {
                                     </span>
                                     {option.type === 'fixed' && (
                                         <span className="text-lg font-bold text-primary">
-                                            Rp {(option.cost || 0).toLocaleString('id-ID')}
+                                            Rp {(option.fixedCost || option.cost || 0).toLocaleString('id-ID')}
                                         </span>
+                                    )}
+                                    {option.type === 'free' && (
+                                        <div className="text-right">
+                                            <span className="text-sm font-semibold text-green-600">
+                                                -{option.fixedCost > 0 ? `Rp ${option.fixedCost.toLocaleString('id-ID')}` : 'Gratis'}
+                                            </span>
+                                            {option.minPurchaseForFree > 0 && (
+                                                <p className="text-xs text-slate-500">
+                                                    Min. Rp {option.minPurchaseForFree.toLocaleString('id-ID')}
+                                                </p>
+                                            )}
+                                        </div>
                                     )}
                                     <button
                                         onClick={() => openEditModal(option)}
@@ -167,7 +208,7 @@ function AdminShippingPage() {
                                         <Icon name="edit" size={20} />
                                     </button>
                                     <button
-                                        onClick={() => handleDelete(option.id)}
+                                        onClick={() => openDeleteModal(option)}
                                         className="p-2 text-slate-400 hover:text-red-500 transition-colors"
                                     >
                                         <Icon name="delete" size={20} />
@@ -223,7 +264,7 @@ function AdminShippingPage() {
                             className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
                         >
                             <option value="fixed">Fixed Cost</option>
-                            <option value="free">Gratis Ongkir</option>
+                            <option value="free">Potongan Ongkir</option>
                             <option value="api">API (RajaOngkir)</option>
                         </select>
                     </div>
@@ -241,6 +282,41 @@ function AdminShippingPage() {
                                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
                             />
                         </div>
+                    )}
+
+                    {formData.type === 'free' && (
+                        <>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                    Minimal Pembelian (Rp)
+                                </label>
+                                <input
+                                    type="number"
+                                    value={formData.minPurchase}
+                                    onChange={(e) => setFormData({ ...formData, minPurchase: e.target.value })}
+                                    placeholder="100000"
+                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                                />
+                                <p className="mt-1 text-xs text-slate-500">
+                                    Potongan ongkir berlaku jika total belanja mencapai nominal ini.
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                    Nominal Potongan (Rp)
+                                </label>
+                                <input
+                                    type="number"
+                                    value={formData.discountAmount}
+                                    onChange={(e) => setFormData({ ...formData, discountAmount: e.target.value })}
+                                    placeholder="15000"
+                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                                />
+                                <p className="mt-1 text-xs text-slate-500">
+                                    Nominal ongkir yang dipotong. Isi 0 untuk gratis ongkir sepenuhnya.
+                                </p>
+                            </div>
+                        </>
                     )}
 
                     <div className="flex items-center gap-2">
@@ -273,6 +349,43 @@ function AdminShippingPage() {
                         </button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={showDeleteModal}
+                onClose={() => { setShowDeleteModal(false); setOptionToDelete(null) }}
+                title="Hapus Opsi Pengiriman"
+            >
+                <div className="text-center py-4">
+                    <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Icon name="delete" size={32} className="text-red-500" />
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 mb-2">
+                        Yakin ingin menghapus <strong>"{optionToDelete?.name}"</strong>?
+                    </p>
+                    <p className="text-sm text-slate-500">
+                        Tindakan ini tidak dapat dibatalkan.
+                    </p>
+                </div>
+                <div className="flex gap-3 pt-4">
+                    <button
+                        type="button"
+                        onClick={() => { setShowDeleteModal(false); setOptionToDelete(null) }}
+                        disabled={isDeleting}
+                        className="flex-1 py-3 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="button"
+                        onClick={confirmDelete}
+                        disabled={isDeleting}
+                        className="flex-1 py-3 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 transition-colors disabled:opacity-50"
+                    >
+                        {isDeleting ? 'Menghapus...' : 'Hapus'}
+                    </button>
+                </div>
             </Modal>
         </>
     )
