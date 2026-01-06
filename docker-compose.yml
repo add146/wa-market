@@ -1,9 +1,11 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
-    container_name: tokoindo-db
+    container_name: wamarket-db
+    restart: unless-stopped
     environment:
       POSTGRES_USER: tokoindo
       POSTGRES_PASSWORD: tokoindo123
@@ -13,10 +15,64 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tokoindo -d tokoindo"]
+      test: [ "CMD-SHELL", "pg_isready -U tokoindo -d tokoindo" ]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - wamarket-network
+
+  # Backend API Server
+  backend:
+    build:
+      context: ./apps/server
+      dockerfile: Dockerfile
+    container_name: wamarket-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://tokoindo:tokoindo123@postgres:5432/tokoindo
+      PORT: 3000
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - wamarket-network
+
+  # Frontend Web App
+  frontend:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: wamarket-frontend
+    restart: unless-stopped
+    networks:
+      - wamarket-network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: wamarket-nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - wamarket-network
 
 volumes:
   postgres_data:
+  uploads_data:
+
+
+networks:
+  wamarket-network:
+    driver: bridge
