@@ -67,16 +67,43 @@ const createOrderSchema = z.object({
 });
 
 /**
- * Generate unique order number (short & simple: WA + 5 chars)
- * Example: WA4K7M2, WA9X3L8
+ * Generate unique order number: [Store Initials] + [Sequential Number]
+ * Example: WM00001, WM00002 (if store name is "WA Market")
  */
-function generateOrderNumber(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, O, 0, 1 to avoid confusion
-    let rand = '';
-    for (let i = 0; i < 5; i++) {
-        rand += chars.charAt(Math.floor(Math.random() * chars.length));
+async function generateOrderNumber(): Promise<string> {
+    // Get store name from settings
+    const [storeSetting] = await db.select()
+        .from(storeSettings)
+        .where(eq(storeSettings.key, 'store_name'));
+
+    const storeName = storeSetting?.value || 'WA Market';
+
+    // Get initials (first 2 letters of first 2 words, or first 2 letters of name)
+    const words = storeName.trim().split(/\s+/);
+    let initials = '';
+    if (words.length >= 2) {
+        initials = (words[0][0] + words[1][0]).toUpperCase();
+    } else {
+        initials = storeName.substring(0, 2).toUpperCase();
     }
-    return `WA${rand}`;
+
+    // Get last order number to determine next sequence
+    const [lastOrder] = await db.select({ orderNumber: orders.orderNumber })
+        .from(orders)
+        .orderBy(desc(orders.createdAt))
+        .limit(1);
+
+    let nextNum = 1;
+    if (lastOrder?.orderNumber) {
+        // Extract number part from last order (e.g., "WM00042" -> 42)
+        const numPart = lastOrder.orderNumber.replace(/\D/g, '');
+        if (numPart) {
+            nextNum = parseInt(numPart, 10) + 1;
+        }
+    }
+
+    // Format: XX + 5-digit number (e.g., WM00001)
+    return `${initials}${nextNum.toString().padStart(5, '0')}`;
 }
 
 /**
@@ -265,7 +292,7 @@ router.post('/', optionalAuthMiddleware, async (req: Request, res: Response) => 
 
         // Create order
         const [newOrder] = await db.insert(orders).values({
-            orderNumber: generateOrderNumber(),
+            orderNumber: await generateOrderNumber(),
             userId: userId || null,
             guestPhone: data.guestPhone ? standardizePhone(data.guestPhone) : undefined,
             guestEmail: data.guestEmail,
