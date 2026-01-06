@@ -16,8 +16,8 @@ function AdminCustomersPage() {
             try {
                 const response = await api.get('/users')
                 const allUsers = response.data?.users || []
-                // Filter only customers
-                const customerList = allUsers.filter(u => u.role === 'customer')
+                // Filter customers and guests (not admins)
+                const customerList = allUsers.filter(u => u.role === 'customer' || u.role === 'guest')
                 setCustomers(customerList)
             } catch (err) {
                 console.error('Failed to fetch customers:', err)

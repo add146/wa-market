@@ -228,16 +228,14 @@ function AdminUsersPage() {
                                                     <Icon name="edit" size={14} className="mr-1" />
                                                     Edit
                                                 </button>
-                                                {user.role !== 'guest' && (
-                                                    <button
-                                                        onClick={() => openPasswordModal(user)}
-                                                        disabled={actionLoading === user.id}
-                                                        className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
-                                                    >
-                                                        <Icon name="lock" size={14} className="mr-1" />
-                                                        Password
-                                                    </button>
-                                                )}
+                                                <button
+                                                    onClick={() => openPasswordModal(user)}
+                                                    disabled={actionLoading === user.id}
+                                                    className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                                                >
+                                                    <Icon name="lock" size={14} className="mr-1" />
+                                                    Password
+                                                </button>
                                                 {user.role !== 'admin' && (
                                                     <button
                                                         onClick={() => openDeleteModal(user)}
