@@ -12,6 +12,9 @@ RUN npm install --legacy-peer-deps
 # Copy source code
 COPY . .
 
+# Set API URL for production (relative path since nginx proxies to backend)
+ENV VITE_API_URL=/api
+
 # Build the app
 RUN npm run build
 
