@@ -283,13 +283,14 @@ function CheckoutPage() {
             return
         }
 
-        if (!selectedDestination) {
-            setSubmitError('Harap pilih tujuan pengiriman')
+        if (!selectedCourier) {
+            setSubmitError('Harap pilih kurir pengiriman')
             return
         }
 
-        if (!selectedCourier) {
-            setSubmitError('Harap pilih kurir pengiriman')
+        // Only require destination for RajaOngkir couriers (not fixed cost)
+        if (!selectedCourier.isFixed && !selectedDestination) {
+            setSubmitError('Harap pilih tujuan pengiriman untuk kurir RajaOngkir')
             return
         }
 
@@ -297,9 +298,9 @@ function CheckoutPage() {
             const orderData = {
                 recipientName,
                 recipientPhone: `62${phone}`,
-                province: selectedDestination.province_name,
-                city: selectedDestination.city_name,
-                district: selectedDestination.subdistrict_name,
+                province: selectedDestination?.province_name || '',
+                city: selectedDestination?.city_name || '',
+                district: selectedDestination?.subdistrict_name || '',
                 address,
                 shippingOptionId: selectedCourier.id,
                 courierName: `${selectedCourier.name} - ${selectedCourier.service}`,
