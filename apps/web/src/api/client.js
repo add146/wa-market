@@ -72,6 +72,7 @@ export const ordersApi = {
     getById: (id) => api.get(`/orders/${id}`),
     create: (data) => api.post('/orders', data),
     approve: (id) => api.patch(`/orders/${id}/approve`),
+    updateStatus: (id, status) => api.patch(`/orders/${id}/status`, { status }),
     delete: (id) => api.delete(`/orders/${id}`),
 };
 

@@ -351,6 +351,39 @@ router.patch('/:id/approve', authMiddleware, adminMiddleware, async (req: Reques
 });
 
 /**
+ * PATCH /api/orders/:id/status
+ * Update order status (Admin only)
+ */
+router.patch('/:id/status', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        // Validate status
+        const validStatuses = ['pending', 'approved', 'shipped', 'completed', 'cancelled'];
+        if (!validStatuses.includes(status)) {
+            res.status(400).json({ error: 'Invalid status. Must be: pending, approved, shipped, completed, cancelled' });
+            return;
+        }
+
+        const [updated] = await db.update(orders)
+            .set({ status, updatedAt: new Date() })
+            .where(eq(orders.id, id))
+            .returning();
+
+        if (!updated) {
+            res.status(404).json({ error: 'Order not found' });
+            return;
+        }
+
+        res.json({ message: 'Order status updated', order: updated });
+    } catch (error) {
+        console.error('Update order status error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * DELETE /api/orders/:id
  * Cancel/Delete order (Admin only)
  */

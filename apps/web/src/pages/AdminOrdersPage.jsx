@@ -206,19 +206,31 @@ function AdminOrdersPage() {
                                                 Detail
                                             </button>
 
-                                            {isAdmin && order.status === 'pending' && (
-                                                <button
-                                                    onClick={() => openApproveModal(order)}
+                                            {isAdmin && (
+                                                <select
+                                                    value={order.status}
+                                                    onChange={async (e) => {
+                                                        const newStatus = e.target.value
+                                                        setActionLoading(order.id)
+                                                        try {
+                                                            await ordersApi.updateStatus(order.id, newStatus)
+                                                            toast.success(`Status diubah ke ${getStatusLabel(newStatus)}`)
+                                                            refetch?.()
+                                                        } catch (error) {
+                                                            toast.error('Gagal mengubah status')
+                                                        } finally {
+                                                            setActionLoading(null)
+                                                        }
+                                                    }}
                                                     disabled={actionLoading === order.id}
-                                                    className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
+                                                    className={`px-3 py-1.5 text-sm font-medium rounded-lg border-0 cursor-pointer disabled:opacity-50 ${getStatusColor(order.status)}`}
                                                 >
-                                                    {actionLoading === order.id ? '...' : (
-                                                        <>
-                                                            <Icon name="check" size={16} className="mr-1" />
-                                                            Approve
-                                                        </>
-                                                    )}
-                                                </button>
+                                                    <option value="pending">Menunggu</option>
+                                                    <option value="approved">Disetujui</option>
+                                                    <option value="shipped">Dikirim</option>
+                                                    <option value="completed">Selesai</option>
+                                                    <option value="cancelled">Dibatalkan</option>
+                                                </select>
                                             )}
 
                                             {isAdmin && (
@@ -227,12 +239,7 @@ function AdminOrdersPage() {
                                                     disabled={actionLoading === order.id}
                                                     className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
                                                 >
-                                                    {actionLoading === order.id ? '...' : (
-                                                        <>
-                                                            <Icon name="delete" size={16} className="mr-1" />
-                                                            Hapus
-                                                        </>
-                                                    )}
+                                                    <Icon name="delete" size={16} />
                                                 </button>
                                             )}
                                         </div>
