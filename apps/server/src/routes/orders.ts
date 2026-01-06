@@ -41,9 +41,9 @@ const createOrderSchema = z.object({
     // Recipient info
     recipientName: z.string().min(2).max(100),
     recipientPhone: z.string().min(10).max(20),
-    province: z.string().min(2).max(100),
-    city: z.string().min(2).max(100),
-    district: z.string().min(2).max(100),
+    province: z.string().max(100).optional().default(''),
+    city: z.string().max(100).optional().default(''),
+    district: z.string().max(100).optional().default(''),
     address: z.string().min(5),
 
     // Shipping
