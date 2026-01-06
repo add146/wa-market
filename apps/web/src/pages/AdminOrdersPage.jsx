@@ -295,6 +295,13 @@ function AdminOrdersPage() {
                                                 <Icon name="visibility" size={16} className="mr-1" />
                                                 Detail
                                             </button>
+                                            <button
+                                                onClick={() => handlePrintNota(order)}
+                                                className="px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary border border-slate-300 dark:border-slate-600 rounded-lg hover:border-primary transition-colors"
+                                                title="Print Nota"
+                                            >
+                                                <Icon name="print" size={16} />
+                                            </button>
 
                                             {isAdmin && (
                                                 <select
@@ -435,17 +442,6 @@ function AdminOrdersPage() {
                                     <span className="text-primary">Rp {(selectedOrder.total || 0).toLocaleString('id-ID')}</span>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* Print Button */}
-                        <div className="pt-4 border-t dark:border-slate-700">
-                            <button
-                                onClick={() => handlePrintNota(selectedOrder)}
-                                className="w-full py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark transition-colors flex items-center justify-center gap-2"
-                            >
-                                <Icon name="print" size={20} />
-                                Print Nota Pengiriman
-                            </button>
                         </div>
                     </div>
                 )}
