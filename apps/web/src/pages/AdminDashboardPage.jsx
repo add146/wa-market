@@ -25,7 +25,7 @@ function AdminDashboardPage() {
     const pendingOrders = orders.filter(o => o?.status === 'pending').length
     const completedOrders = orders.filter(o => o?.status === 'completed' || o?.status === 'delivered').length
     const totalRevenue = orders
-        .filter(o => o?.status === 'delivered')
+        .filter(o => o?.status && o?.status !== 'cancelled')
         .reduce((sum, o) => sum + (o?.total || 0), 0)
 
     // Format currency
