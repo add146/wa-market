@@ -265,7 +265,6 @@ function AdminShippingPage() {
                         >
                             <option value="fixed">Fixed Cost</option>
                             <option value="free">Potongan Ongkir</option>
-                            <option value="api">API (RajaOngkir)</option>
                         </select>
                     </div>
 
