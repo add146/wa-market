@@ -23,6 +23,7 @@ const createProductSchema = z.object({
     description: z.string().optional().nullable(),
     categoryId: z.string().uuid().optional().nullable(),
     price: z.number().nonnegative(),
+    costPrice: z.number().nonnegative().optional().nullable(), // HPP/harga kulak
     originalPrice: z.number().nonnegative().optional().nullable(),
     discount: z.number().min(0).max(100).optional(),
     image: z.string().optional().nullable(),
