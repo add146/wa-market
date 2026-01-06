@@ -52,6 +52,7 @@ router.get('/', async (req: Request, res: Response) => {
             description: products.description,
             categoryId: products.categoryId,
             price: products.price,
+            costPrice: products.costPrice,
             originalPrice: products.originalPrice,
             discount: products.discount,
             image: products.image,
