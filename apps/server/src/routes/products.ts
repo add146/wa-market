@@ -178,6 +178,9 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req: Request, res: Re
         // Extract variants and images from request (handle separately)
         const { variants: variantsData, images: imagesData, ...productData } = validation.data;
 
+        // Debug log for costPrice
+        console.log('Product update - costPrice:', productData.costPrice, 'Full data:', JSON.stringify(productData));
+
         // Auto-generate slug from name if name is provided but slug is not
         let updateData: any = { ...productData, updatedAt: new Date() };
 
