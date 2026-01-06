@@ -75,7 +75,7 @@ function ProductCard({ product }) {
             </div>
 
             {/* Product Info */}
-            <div className="flex flex-1 flex-col p-3">
+            <div className="flex flex-1 flex-col p-2 sm:p-3">
                 <div className="mb-1 text-xs text-text-muted-light dark:text-text-muted-dark">
                     {category}
                 </div>

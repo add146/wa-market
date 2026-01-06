@@ -143,10 +143,10 @@ function ProductDetailPage() {
                 <ProductImageGallery images={productImages} />
 
                 {/* Product Info (Right Column) */}
-                <div className="mt-10 px-0 sm:mt-16 sm:px-0 lg:mt-0">
+                <div className="mt-4 px-0 sm:mt-16 lg:mt-0">
                     {/* Title & Rating */}
-                    <div className="mb-6 border-b border-slate-200 dark:border-slate-800 pb-6">
-                        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl">
+                    <div className="mb-4 sm:mb-6 border-b border-slate-200 dark:border-slate-800 pb-4 sm:pb-6">
+                        <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white lg:text-4xl">
                             {product.name}
                         </h1>
                         <ProductRating
