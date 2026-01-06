@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Icon, Button } from '../components/atoms'
 import { useCart } from '../context'
 
-const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'
+const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : ''
 
 /**
  * CartPage - Halaman keranjang belanja (Full Page)

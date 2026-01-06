@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../atoms'
 import { useCart } from '../../context'
 
-const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'
+const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : ''
 
 // Get full image URL (handle local uploads)
 const getImageUrl = (image) => {

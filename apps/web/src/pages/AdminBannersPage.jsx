@@ -3,7 +3,7 @@ import AdminHeader from '../components/organisms/AdminHeader'
 import { Icon } from '../components/atoms'
 import { settingsApi, uploadApi } from '../api/client'
 
-const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'
+const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : ''
 
 const getImageUrl = (url) => {
     if (url?.startsWith('/uploads')) return `${API_BASE}${url}`

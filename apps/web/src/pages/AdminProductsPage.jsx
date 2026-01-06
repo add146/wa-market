@@ -5,7 +5,7 @@ import { useProducts, useCategories } from '../hooks'
 import { productsApi, uploadApi } from '../api/client'
 import { useToast } from '../context'
 
-const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'
+const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : ''
 
 /**
  * AdminProductsPage - Product management for sellers/admins
