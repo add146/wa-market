@@ -175,8 +175,8 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req: Request, res: Re
             return;
         }
 
-        // Extract variants from request (handle separately)
-        const { variants: variantsData, ...productData } = validation.data;
+        // Extract variants and images from request (handle separately)
+        const { variants: variantsData, images: imagesData, ...productData } = validation.data;
 
         // Auto-generate slug from name if name is provided but slug is not
         let updateData: any = { ...productData, updatedAt: new Date() };
@@ -190,8 +190,8 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req: Request, res: Re
         }
 
         // Use first image from images array if image is not provided
-        if (productData.images?.length && !productData.image) {
-            updateData.image = productData.images[0];
+        if (imagesData?.length && !productData.image) {
+            updateData.image = imagesData[0];
         }
 
         const [updated] = await db.update(products)
@@ -224,12 +224,12 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req: Request, res: Re
         }
 
         // Sync images to productImages table if provided
-        if (productData.images && productData.images.length > 0) {
+        if (imagesData && imagesData.length > 0) {
             // Delete existing product images
             await db.delete(productImages).where(eq(productImages.productId, id));
 
             // Insert new images
-            const imagesToInsert = productData.images.map((url: string, index: number) => ({
+            const imagesToInsert = imagesData.map((url: string, index: number) => ({
                 productId: id,
                 url: url,
                 alt: `${productData.name || 'Product'} image ${index + 1}`,
