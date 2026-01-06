@@ -14,6 +14,8 @@ function AdminUsersPage() {
     const [selectedUser, setSelectedUser] = useState(null)
     const [showPasswordModal, setShowPasswordModal] = useState(false)
     const [newPassword, setNewPassword] = useState('')
+    const [showEditNameModal, setShowEditNameModal] = useState(false)
+    const [newName, setNewName] = useState('')
     const [actionLoading, setActionLoading] = useState(null)
 
     // Confirmation modals state
@@ -90,6 +92,30 @@ function AdminUsersPage() {
             setShowPasswordModal(false)
         } catch (err) {
             toast.error('Gagal mereset password')
+        } finally {
+            setActionLoading(null)
+        }
+    }
+
+    const openEditNameModal = (user) => {
+        setSelectedUser(user)
+        setNewName(user.name || '')
+        setShowEditNameModal(true)
+    }
+
+    const handleEditName = async () => {
+        if (!newName || newName.length < 2) {
+            toast.error('Nama minimal 2 karakter')
+            return
+        }
+        setActionLoading(selectedUser.id)
+        try {
+            await api.patch(`/users/${selectedUser.id}/name`, { name: newName })
+            toast.success('Nama berhasil diubah!')
+            setShowEditNameModal(false)
+            fetchUsers()
+        } catch (err) {
+            toast.error('Gagal mengubah nama')
         } finally {
             setActionLoading(null)
         }
@@ -187,14 +213,26 @@ function AdminUsersPage() {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
-                                                <button
-                                                    onClick={() => openPasswordModal(user)}
-                                                    disabled={actionLoading === user.id}
-                                                    className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
-                                                >
-                                                    <Icon name="lock" size={14} className="mr-1" />
-                                                    Reset Password
-                                                </button>
+                                                {user.role !== 'guest' && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => openEditNameModal(user)}
+                                                            disabled={actionLoading === user.id}
+                                                            className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
+                                                        >
+                                                            <Icon name="edit" size={14} className="mr-1" />
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={() => openPasswordModal(user)}
+                                                            disabled={actionLoading === user.id}
+                                                            className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                                                        >
+                                                            <Icon name="lock" size={14} className="mr-1" />
+                                                            Password
+                                                        </button>
+                                                    </>
+                                                )}
                                                 <button
                                                     onClick={() => openDeleteModal(user)}
                                                     disabled={actionLoading === user.id}
@@ -245,6 +283,43 @@ function AdminUsersPage() {
                             className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg disabled:opacity-50"
                         >
                             {actionLoading ? 'Menyimpan...' : 'Reset Password'}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Edit Name Modal */}
+            <Modal
+                isOpen={showEditNameModal}
+                onClose={() => setShowEditNameModal(false)}
+                title={`Edit Nama - ${selectedUser?.name}`}
+            >
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                            Nama Baru
+                        </label>
+                        <input
+                            type="text"
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                            placeholder="Minimal 2 karakter"
+                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                        />
+                    </div>
+                    <div className="flex justify-end gap-3">
+                        <button
+                            onClick={() => setShowEditNameModal(false)}
+                            className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 dark:text-slate-400"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            onClick={handleEditName}
+                            disabled={actionLoading}
+                            className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
+                        >
+                            {actionLoading ? 'Menyimpan...' : 'Simpan'}
                         </button>
                     </div>
                 </div>

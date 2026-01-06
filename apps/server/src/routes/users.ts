@@ -42,7 +42,7 @@ router.get('/', authMiddleware, adminMiddleware, async (req: Request, res: Respo
                 guestMap.set(order.guestPhone, {
                     phone: order.guestPhone,
                     name: order.recipientName,
-                    createdAt: order.createdAt,
+                    createdAt: order.createdAt || new Date(),
                 });
             }
         }
@@ -58,11 +58,47 @@ router.get('/', authMiddleware, adminMiddleware, async (req: Request, res: Respo
 
         // Combine and sort by createdAt
         const allCustomers = [...registeredUsers, ...guestCustomers]
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
         res.json({ users: allCustomers });
     } catch (error) {
         console.error('Get users error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * PATCH /api/users/:id/name
+ * Update user name (Admin only)
+ */
+router.patch('/:id/name', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { name } = req.body;
+
+        if (!name || name.length < 2) {
+            res.status(400).json({ error: 'Name must be at least 2 characters' });
+            return;
+        }
+
+        const [updated] = await db.update(users)
+            .set({ name, updatedAt: new Date() })
+            .where(eq(users.id, id))
+            .returning({
+                id: users.id,
+                name: users.name,
+                phone: users.phone,
+                role: users.role,
+            });
+
+        if (!updated) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        res.json({ message: 'Name updated successfully', user: updated });
+    } catch (error) {
+        console.error('Update name error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
