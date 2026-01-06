@@ -26,6 +26,7 @@ router.get('/', authMiddleware, adminMiddleware, async (req: Request, res: Respo
             .orderBy(desc(users.createdAt));
 
         // Get unique guest customers from orders (those without userId)
+        // Sort by asc to get oldest order first (we keep the first order's name for each phone)
         const guestOrders = await db.select({
             guestPhone: orders.guestPhone,
             recipientName: orders.recipientName,
@@ -33,7 +34,7 @@ router.get('/', authMiddleware, adminMiddleware, async (req: Request, res: Respo
         })
             .from(orders)
             .where(isNotNull(orders.guestPhone))
-            .orderBy(desc(orders.createdAt));
+            .orderBy(orders.createdAt);
 
         // Deduplicate guests by phone number
         const guestMap = new Map<string, { phone: string; name: string; createdAt: Date }>();
