@@ -100,7 +100,7 @@ function ProductCard({ product }) {
                             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-2 text-sm font-bold text-white transition-colors hover:bg-primary-dark"
                         >
                             <Icon name="chat" size={18} />
-                            Beli via WA
+                            Beli
                         </button>
                     </div>
                 </div>
