@@ -443,6 +443,17 @@ function AdminOrdersPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Print Button */}
+                        <div className="pt-4 border-t dark:border-slate-700">
+                            <button
+                                onClick={() => handlePrintNota(selectedOrder)}
+                                className="w-full py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark transition-colors flex items-center justify-center gap-2"
+                            >
+                                <Icon name="print" size={20} />
+                                Print Nota Pengiriman
+                            </button>
+                        </div>
                     </div>
                 )}
             </Modal>
