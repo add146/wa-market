@@ -1,332 +1,224 @@
-# Panduan Deployment WA Market - Untuk Pemula
+# Panduan Deployment Multi-Toko - WA Market
 
-Panduan lengkap step-by-step untuk deploy WA Market menggunakan Docker di aaPanel dengan Cloudflare Zero Trust.
-
----
-
-## 📋 Daftar Isi
-
-1. [Persiapan Server](#1-persiapan-server)
-2. [Install aaPanel](#2-install-aapanel)
-3. [Install Docker di aaPanel](#3-install-docker-di-aapanel)
-4. [Upload Project ke Server](#4-upload-project-ke-server)
-5. [Build dan Jalankan Docker](#5-build-dan-jalankan-docker)
-6. [Setup Database](#6-setup-database)
-7. [Setup Cloudflare Zero Trust](#7-setup-cloudflare-zero-trust)
-8. [Troubleshooting](#8-troubleshooting)
+Panduan untuk deploy **beberapa toko berbeda** di satu server dengan domain berbeda menggunakan Docker + aaPanel + Cloudflare Zero Trust.
 
 ---
 
-## 1. Persiapan Server
+## 📋 Arsitektur Multi-Toko
 
-### Spesifikasi Minimum
-- **RAM**: 2GB (recommended 4GB)
-- **Storage**: 20GB
-- **OS**: Ubuntu 20.04/22.04 atau CentOS 7/8
-- **Akses**: SSH root atau sudo
-
-### Akses SSH ke Server
-```bash
-# Dari terminal/PowerShell
-ssh root@IP_SERVER_ANDA
 ```
+Server (1 IP)
+├── wamarket.khibroh.com    → /www/wwwroot/wamarket.khibroh.com     → Port 8080
+├── toko2.khibroh.com       → /www/wwwroot/toko2.khibroh.com        → Port 8081
+└── toko3.khibroh.com       → /www/wwwroot/toko3.khibroh.com        → Port 8082
+```
+
+Setiap toko memiliki:
+- **Database PostgreSQL sendiri** (container terpisah)
+- **Backend sendiri** (container terpisah)
+- **Frontend sendiri** (container terpisah)
+- **Port berbeda** (8080, 8081, 8082, dst)
 
 ---
 
-## 2. Install aaPanel
+## 🚀 Langkah Instalasi Toko Baru
 
-> ⚠️ **Skip langkah ini jika aaPanel sudah terinstall**
-
-### Ubuntu/Debian
-```bash
-wget -O install.sh http://www.aapanel.com/script/install-ubuntu_6.0_en.sh && bash install.sh aapanel
-```
-
-### CentOS
-```bash
-yum install -y wget && wget -O install.sh http://www.aapanel.com/script/install_6.0_en.sh && bash install.sh aapanel
-```
-
-Setelah install selesai, akan muncul:
-```
-==================================================================
-aaPanel Internet Address: http://IP_ANDA:7800/xxxxxx
-username: xxxxxx
-password: xxxxxx
-==================================================================
-```
-
-**⚡ PENTING**: Simpan informasi login ini!
-
----
-
-## 3. Install Docker di aaPanel
-
-### Step 3.1: Login ke aaPanel
-1. Buka browser
-2. Akses `http://IP_SERVER_ANDA:7800/xxxxxx`
-3. Login dengan username dan password yang diberikan
-
-### Step 3.2: Install Docker Manager
-1. Klik menu **App Store** di sidebar kiri
-2. Cari **"Docker Manager"**
-3. Klik **Install**
-4. Tunggu hingga instalasi selesai (± 5 menit)
-
-![Install Docker Manager](https://i.imgur.com/placeholder.png)
-
-### Step 3.3: Verifikasi Docker
-```bash
-# Cek via SSH
-docker --version
-docker-compose --version
-```
-
-Harus menampilkan versi Docker dan Docker Compose.
-
----
-
-## 4. Upload Project ke Server
-
-### Option A: Via Git (Recommended)
+### 1. Clone Repository
 
 ```bash
-# SSH ke server
-ssh root@IP_SERVER_ANDA
-
-# Masuk ke direktori web
 cd /www/wwwroot
-
-# Clone repository
-git clone https://github.com/add146/wa-market.git
-
-# Masuk ke folder project
-cd wa-market
+git clone https://github.com/add146/wa-market.git nama-toko-baru
+cd nama-toko-baru
 ```
 
-### Option B: Via aaPanel File Manager
+### 2. Ubah Konfigurasi Port & Container Name
 
-1. Klik menu **Files** di sidebar
-2. Navigate ke `/www/wwwroot/`
-3. Upload file ZIP project
-4. Extract
+Edit `docker-compose.yml` dan ubah:
 
-### Option C: Via SFTP
-Gunakan FileZilla atau WinSCP:
-- Host: IP_SERVER_ANDA
-- Port: 22
-- Username: root
-- Password: (password server)
-- Upload ke: `/www/wwwroot/wa-market/`
+| Yang diubah | Toko 1 | Toko 2 | Toko 3 |
+|-------------|--------|--------|--------|
+| Container prefix | `wamarket-` | `toko2-` | `toko3-` |
+| Nginx port | `8080:80` | `8081:80` | `8082:80` |
+| Backend port | `3000:3000` | `3001:3000` | `3002:3000` |
+| Postgres port | `5432:5432` | `5433:5432` | `5434:5432` |
+| Network name | `wamarket-network` | `toko2-network` | `toko3-network` |
+| Volume prefix | `wamarket_` | `toko2_` | `toko3_` |
+
+**Contoh docker-compose.yml untuk Toko 2:**
+
+```yaml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: toko2-db          # Ubah nama container
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tokoindo
+      POSTGRES_PASSWORD: passwordbaru123   # Ubah password!
+      POSTGRES_DB: toko2
+    ports:
+      - "5433:5432"                    # Ubah port host
+    volumes:
+      - toko2_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tokoindo -d toko2"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - toko2-network
+
+  backend:
+    build:
+      context: ./apps/server
+      dockerfile: Dockerfile
+    container_name: toko2-backend      # Ubah nama container
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://tokoindo:passwordbaru123@postgres:5432/toko2
+      PORT: 3000
+      NODE_ENV: production
+    ports:
+      - "3001:3000"                    # Ubah port host
+    volumes:
+      - toko2_uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - toko2-network
+
+  frontend:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: toko2-frontend     # Ubah nama container
+    restart: unless-stopped
+    networks:
+      - toko2-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: toko2-nginx        # Ubah nama container
+    restart: unless-stopped
+    ports:
+      - "8081:80"                      # Ubah port host
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - toko2-network
+
+volumes:
+  toko2_postgres_data:                 # Ubah nama volume
+  toko2_uploads_data:                  # Ubah nama volume
+
+networks:
+  toko2-network:                        # Ubah nama network
+    driver: bridge
+```
+
+### 3. Build & Jalankan
+
+```bash
+sudo docker-compose build
+sudo docker-compose up -d
+```
+
+### 4. Setup Database
+
+```bash
+sudo docker-compose exec backend npx drizzle-kit push
+```
+
+### 5. Verifikasi
+
+```bash
+# Cek semua container running
+docker ps
+
+# Test API
+curl http://localhost:8081/api/health
+```
 
 ---
 
-## 5. Build dan Jalankan Docker
+## 🌐 Setup Cloudflare Zero Trust (Multi-Domain)
 
-### Step 5.1: Masuk ke Folder Project
+### Opsi A: Satu Tunnel, Multiple Hostnames
+
+```yaml
+# ~/.cloudflared/config.yml
+tunnel: <TUNNEL_ID>
+credentials-file: /root/.cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  - hostname: wamarket.khibroh.com
+    service: http://localhost:8080
+  - hostname: toko2.khibroh.com
+    service: http://localhost:8081
+  - hostname: toko3.khibroh.com
+    service: http://localhost:8082
+  - service: http_status:404
+```
+
+Lalu restart cloudflared:
 ```bash
-cd /www/wwwroot/wa-market
+sudo systemctl restart cloudflared
 ```
 
-### Step 5.2: Konfigurasi Environment
-```bash
-# Copy template environment
-cp apps/server/.env.example apps/server/.env
+### Opsi B: Via Cloudflare Dashboard
 
-# Edit file environment
-nano apps/server/.env
-```
-
-Edit isi `.env`:
-```env
-DATABASE_URL=postgresql://tokoindo:tokoindo123@postgres:5432/tokoindo
-PORT=3000
-NODE_ENV=production
-
-# Ganti dengan secret key random (bisa generate di: https://generate-secret.vercel.app/)
-BETTER_AUTH_SECRET=ganti-dengan-random-string-panjang
-
-# Ganti dengan domain Anda
-BETTER_AUTH_URL=https://yourdomain.com
-
-# Nomor WhatsApp admin (format: 628xxx)
-ADMIN_WHATSAPP_CS=6281234567890
-ADMIN_WHATSAPP_KASIR=6281234567891
-```
-
-Simpan: `Ctrl + O`, Enter, `Ctrl + X`
-
-### Step 5.3: Build Docker Images
-```bash
-docker-compose build
-```
-⏱️ Proses ini memakan waktu 5-10 menit tergantung kecepatan server.
-
-### Step 5.4: Jalankan Containers
-```bash
-docker-compose up -d
-```
-
-### Step 5.5: Cek Status
-```bash
-docker-compose ps
-```
-
-Output yang diharapkan:
-```
-NAME                 STATUS              PORTS
-wamarket-backend     Up                  0.0.0.0:3000->3000/tcp
-wamarket-db          Up (healthy)        0.0.0.0:5432->5432/tcp
-wamarket-frontend    Up                  80/tcp
-wamarket-nginx       Up                  0.0.0.0:80->80/tcp
-```
-
-### Step 5.6: Test Aplikasi
-```bash
-# Test health endpoint
-curl http://localhost/api/health
-```
-
-Harus return: `{"status":"ok",...}`
-
-Buka browser: `http://IP_SERVER_ANDA` - aplikasi harus tampil!
+1. Buka **Zero Trust → Networks → Tunnels**
+2. Klik tunnel Anda → **Configure**
+3. Di bagian **Public Hostnames**, tambah hostname baru:
+   - Hostname: `toko2.khibroh.com`
+   - Type: HTTP
+   - URL: `localhost:8081`
+4. Klik **Save**
 
 ---
 
-## 6. Setup Database
+## 📦 Ringkasan Port
 
-### Step 6.1: Push Schema ke Database
-```bash
-docker-compose exec backend npx drizzle-kit push
-```
-
-Ketik `yes` jika diminta konfirmasi.
-
-### Step 6.2: (Optional) Jalankan Seed Data
-```bash
-docker-compose exec backend npx tsx src/db/seed.ts
-```
+| Toko | Domain | Nginx | Backend | PostgreSQL |
+|------|--------|-------|---------|------------|
+| 1 | wamarket.khibroh.com | 8080 | 3000 | 5432 |
+| 2 | toko2.khibroh.com | 8081 | 3001 | 5433 |
+| 3 | toko3.khibroh.com | 8082 | 3002 | 5434 |
+| N | tokoN.domain.com | 8079+N | 2999+N | 5431+N |
 
 ---
 
-## 7. Setup Cloudflare Zero Trust
+## 🔧 Perintah Berguna
 
-### Step 7.1: Persiapan di Cloudflare
-1. Login ke [Cloudflare Dashboard](https://dash.cloudflare.com)
-2. Pilih domain Anda
-3. Klik **Zero Trust** di sidebar
-4. Klik **Networks** → **Tunnels**
-5. Klik **Create a tunnel**
-
-### Step 7.2: Install cloudflared di Server
 ```bash
-# Download cloudflared
-wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+# Lihat semua container running
+docker ps
 
-# Pindahkan ke /usr/local/bin
-sudo mv cloudflared-linux-amd64 /usr/local/bin/cloudflared
+# Lihat logs toko tertentu
+cd /www/wwwroot/toko2.khibroh.com
+sudo docker-compose logs -f
 
-# Beri permission
-sudo chmod +x /usr/local/bin/cloudflared
+# Restart toko tertentu
+cd /www/wwwroot/toko2.khibroh.com
+sudo docker-compose restart
 
-# Verifikasi
-cloudflared --version
-```
-
-### Step 7.3: Connect Tunnel
-Di halaman Cloudflare setelah create tunnel, akan muncul command seperti:
-```bash
-sudo cloudflared service install eyJhIjoixxxxxxxx...
-```
-
-Copy dan jalankan command tersebut di server.
-
-### Step 7.4: Konfigurasi Route
-1. Di halaman tunnel Cloudflare, klik **Configure**
-2. Di bagian **Public Hostname**, tambahkan:
-   - **Subdomain**: (kosongkan untuk root domain, atau isi subdomain)
-   - **Domain**: pilih domain Anda
-   - **Type**: HTTP
-   - **URL**: `localhost:8080`
-3. Klik **Save**
-
-### Step 7.5: Verifikasi
-Tunggu 1-2 menit, lalu akses:
-`https://yourdomain.com`
-
-🎉 Selesai! Aplikasi sudah bisa diakses via HTTPS!
-
-> [!NOTE]
-> Kami menggunakan port **8080** untuk Docker agar tidak bentrok dengan Nginx bawaan aaPanel yang menggunakan port 80.
-
----
-
-## 8. Troubleshooting
-
-### Container tidak mau start
-```bash
-# Lihat logs
-docker-compose logs backend
-docker-compose logs frontend
-
-# Restart
-docker-compose restart
-```
-
-### Database error
-```bash
-# Cek koneksi database
-docker-compose exec postgres psql -U tokoindo -d tokoindo -c "SELECT 1"
-
-# Restart database
-docker-compose restart postgres
-```
-
-### Port 80 sudah digunakan
-```bash
-# Cek siapa yang pakai port 80
-sudo lsof -i :80
-
-# Jika Nginx bawaan aaPanel, stop dulu
-sudo systemctl stop nginx
-
-# Atau edit docker-compose.yml, ganti port 80 ke 8080
-# lalu akses via http://IP:8080
-```
-
-### Update aplikasi
-```bash
-cd /www/wwwroot/wa-market
+# Update toko tertentu
+cd /www/wwwroot/toko2.khibroh.com
 git pull
-docker-compose build
-docker-compose up -d
-```
-
-### Reset semua (HATI-HATI: data akan hilang!)
-```bash
-docker-compose down -v
-docker-compose up -d
-docker-compose exec backend npx drizzle-kit push
+sudo docker-compose up -d --build
 ```
 
 ---
 
-## 📞 Bantuan
+## ⚠️ Tips Penting
 
-Jika mengalami masalah:
-1. Cek logs: `docker-compose logs -f`
-2. Pastikan port 80 tidak diblokir firewall
-3. Pastikan domain sudah pointing ke IP server
-
----
-
-## 🔄 Perintah Berguna
-
-| Perintah | Fungsi |
-|----------|--------|
-| `docker-compose ps` | Lihat status containers |
-| `docker-compose logs -f` | Lihat logs realtime |
-| `docker-compose restart` | Restart semua services |
-| `docker-compose down` | Stop semua services |
-| `docker-compose up -d` | Start semua services |
-| `docker-compose build` | Build ulang images |
+1. **Gunakan password database berbeda** untuk setiap toko
+2. **Backup database** secara berkala untuk setiap toko
+3. **Monitor resource server** jika menjalankan banyak toko (RAM & CPU)
+4. **Jangan lupa update** semua toko saat ada security patch
