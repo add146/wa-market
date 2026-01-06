@@ -175,6 +175,7 @@ router.post('/', optionalAuthMiddleware, async (req: Request, res: Response) => 
             productName: string;
             variantInfo?: string;
             price: number;
+            costPrice: number;
             quantity: number;
             subtotal: number;
         }> = [];
@@ -200,6 +201,7 @@ router.post('/', optionalAuthMiddleware, async (req: Request, res: Response) => 
                 productId: item.productId,
                 productName: item.product?.name || 'Unknown Product',
                 price: item.product?.price || 0,
+                costPrice: item.product?.costPrice || 0,
                 quantity: item.quantity,
                 subtotal: (item.product?.price || 0) * item.quantity,
             }));
@@ -224,6 +226,7 @@ router.post('/', optionalAuthMiddleware, async (req: Request, res: Response) => 
                         productName: product.name,
                         variantInfo: item.variantInfo,
                         price: product.price,
+                        costPrice: product.costPrice || 0,
                         quantity: item.quantity,
                         subtotal: product.price * item.quantity,
                     });

@@ -55,7 +55,8 @@ export const products = pgTable('products', {
     slug: varchar('slug', { length: 255 }).notNull().unique(),
     description: text('description'),
     categoryId: uuid('category_id').references(() => categories.id),
-    price: integer('price').notNull(), // in Rupiah
+    price: integer('price').notNull(), // in Rupiah (selling price)
+    costPrice: integer('cost_price').default(0), // HPP/harga kulak
     originalPrice: integer('original_price'),
     discount: integer('discount'), // percentage
     image: text('image'),
@@ -234,6 +235,7 @@ export const orderItems = pgTable('order_items', {
     productName: varchar('product_name', { length: 255 }).notNull(),
     variantInfo: varchar('variant_info', { length: 100 }),
     price: integer('price').notNull(),
+    costPrice: integer('cost_price').default(0), // HPP for profit calculation
     quantity: integer('quantity').notNull(),
     subtotal: integer('subtotal').notNull(),
 });

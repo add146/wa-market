@@ -31,6 +31,7 @@ function AdminProductsPage() {
         name: '',
         description: '',
         price: '',
+        costPrice: '',
         originalPrice: '',
         stock: '',
         weight: '500',
@@ -60,6 +61,7 @@ function AdminProductsPage() {
             name: '',
             description: '',
             price: '',
+            costPrice: '',
             originalPrice: '',
             stock: '',
             weight: '500',
@@ -105,6 +107,7 @@ function AdminProductsPage() {
                 name: fullProduct.name || '',
                 description: fullProduct.description || '',
                 price: fullProduct.price?.toString() || '',
+                costPrice: fullProduct.costPrice?.toString() || '',
                 originalPrice: fullProduct.originalPrice?.toString() || '',
                 stock: fullProduct.stock?.toString() || '',
                 weight: fullProduct.weight?.toString() || '500',
@@ -130,6 +133,7 @@ function AdminProductsPage() {
                 name: product.name || '',
                 description: product.description || '',
                 price: product.price?.toString() || '',
+                costPrice: product.costPrice?.toString() || '',
                 originalPrice: product.originalPrice?.toString() || '',
                 stock: product.stock?.toString() || '',
                 weight: product.weight?.toString() || '500',
@@ -180,6 +184,7 @@ function AdminProductsPage() {
                 name: formData.name,
                 description: formData.description,
                 price: parseFloat(formData.price) || 0,
+                costPrice: parseFloat(formData.costPrice) || 0,
                 originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
                 stock: parseInt(formData.stock) || 0,
                 weight: parseInt(formData.weight) || 500,
@@ -380,10 +385,10 @@ function AdminProductsPage() {
                         />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Harga *
+                                Harga Jual *
                             </label>
                             <input
                                 type="number"
@@ -395,7 +400,19 @@ function AdminProductsPage() {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Harga Asli (coret)
+                                Harga HPP
+                            </label>
+                            <input
+                                type="number"
+                                value={formData.costPrice}
+                                onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
+                                placeholder="Harga kulak"
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Harga Coret
                             </label>
                             <input
                                 type="number"

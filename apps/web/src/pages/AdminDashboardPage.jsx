@@ -11,6 +11,7 @@ import { useOrders, useProducts, useSetting } from '../hooks'
 function AdminDashboardPage() {
     const { user, isAdmin, isSeller } = useAuth()
     const { data: storeName } = useSetting('store_name')
+    const [period, setPeriod] = useState('all') // 'all', 'week', 'month', 'year'
 
     // Fetch data from API with safe access
     const ordersQuery = useOrders()
@@ -18,8 +19,28 @@ function AdminDashboardPage() {
 
     const ordersData = ordersQuery?.data
     const productsData = productsQuery?.data
-    const orders = Array.isArray(ordersData) ? ordersData : (ordersData?.orders || [])
+    const allOrders = Array.isArray(ordersData) ? ordersData : (ordersData?.orders || [])
     const products = Array.isArray(productsData) ? productsData : (productsData?.products || productsData?.data || [])
+
+    // Filter orders by period
+    const filterByPeriod = (orderList) => {
+        if (period === 'all') return orderList
+
+        const now = new Date()
+        let startDate = new Date()
+
+        if (period === 'week') {
+            startDate.setDate(now.getDate() - 7)
+        } else if (period === 'month') {
+            startDate.setMonth(now.getMonth() - 1)
+        } else if (period === 'year') {
+            startDate.setFullYear(now.getFullYear() - 1)
+        }
+
+        return orderList.filter(o => new Date(o.createdAt) >= startDate)
+    }
+
+    const orders = filterByPeriod(allOrders)
 
     // Calculate stats with safe array access
     const pendingOrders = orders.filter(o => o?.status === 'pending').length
@@ -28,11 +49,32 @@ function AdminDashboardPage() {
         .filter(o => o?.status && o?.status !== 'cancelled')
         .reduce((sum, o) => sum + (o?.total || 0), 0)
 
+    // Calculate profit (revenue - cost) from order items
+    // Note: profit = Σ((price - costPrice) × quantity) per item
+    const totalProfit = orders
+        .filter(o => o?.status && o?.status !== 'cancelled')
+        .reduce((sum, o) => {
+            const itemProfit = (o?.items || []).reduce((itemSum, item) => {
+                const profit = ((item?.price || 0) - (item?.costPrice || 0)) * (item?.quantity || 1)
+                return itemSum + profit
+            }, 0)
+            return sum + itemProfit
+        }, 0)
+
     // Format currency
     const formatPrice = (price) => {
         if (price >= 1000000) return `Rp ${(price / 1000000).toFixed(1)}jt`
         if (price >= 1000) return `Rp ${(price / 1000).toFixed(0)}rb`
         return `Rp ${price.toLocaleString('id-ID')}`
+    }
+
+    const getPeriodLabel = () => {
+        switch (period) {
+            case 'week': return 'Minggu Ini'
+            case 'month': return 'Bulan Ini'
+            case 'year': return 'Tahun Ini'
+            default: return 'Semua Waktu'
+        }
     }
 
     return (
@@ -44,8 +86,31 @@ function AdminDashboardPage() {
 
             {/* Scrollable Content Area */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                {/* Period Filter */}
+                {isSeller && (
+                    <div className="flex gap-2 mb-4 flex-wrap">
+                        {[
+                            { value: 'all', label: 'Semua' },
+                            { value: 'week', label: 'Minggu Ini' },
+                            { value: 'month', label: 'Bulan Ini' },
+                            { value: 'year', label: 'Tahun Ini' },
+                        ].map(p => (
+                            <button
+                                key={p.value}
+                                onClick={() => setPeriod(p.value)}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${period === p.value
+                                    ? 'bg-primary text-white'
+                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                                    }`}
+                            >
+                                {p.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
                 {/* Quick Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                     <StatCard
                         title="Pesanan Pending"
                         value={pendingOrders.toString()}
@@ -72,6 +137,14 @@ function AdminDashboardPage() {
                             value={formatPrice(totalRevenue)}
                             icon="payments"
                             color="purple"
+                        />
+                    )}
+                    {isSeller && (
+                        <StatCard
+                            title="Profit"
+                            value={formatPrice(totalProfit)}
+                            icon="trending_up"
+                            color="green"
                         />
                     )}
                 </div>
