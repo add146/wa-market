@@ -67,15 +67,16 @@ const createOrderSchema = z.object({
 });
 
 /**
- * Generate unique order number
+ * Generate unique order number (short & simple: WA + 5 chars)
+ * Example: WA4K7M2, WA9X3L8
  */
 function generateOrderNumber(): string {
-    const date = new Date();
-    const y = date.getFullYear().toString().slice(-2);
-    const m = (date.getMonth() + 1).toString().padStart(2, '0');
-    const d = date.getDate().toString().padStart(2, '0');
-    const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
-    return `TI${y}${m}${d}${rand}`;
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, O, 0, 1 to avoid confusion
+    let rand = '';
+    for (let i = 0; i < 5; i++) {
+        rand += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `WA${rand}`;
 }
 
 /**
