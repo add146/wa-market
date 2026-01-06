@@ -126,6 +126,96 @@ function AdminOrdersPage() {
         return phone
     }
 
+    // Print nota function for 1/4 A4 paper (10.5cm x 14.8cm)
+    const handlePrintNota = (order) => {
+        const printWindow = window.open('', '_blank', 'width=400,height=600')
+        const itemsList = (order.items || []).map(item =>
+            `<tr>
+                <td style="padding: 4px 0; border-bottom: 1px dashed #ddd;">${item.productName}${item.variantInfo ? ` (${item.variantInfo})` : ''}</td>
+                <td style="padding: 4px 8px; text-align: center; border-bottom: 1px dashed #ddd;">${item.quantity}</td>
+                <td style="padding: 4px 0; text-align: right; border-bottom: 1px dashed #ddd;">Rp ${(item.price * item.quantity).toLocaleString('id-ID')}</td>
+            </tr>`
+        ).join('')
+
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Nota #${order.orderNumber}</title>
+                <style>
+                    @page { size: 105mm 148mm; margin: 5mm; }
+                    body { 
+                        font-family: 'Segoe UI', Arial, sans-serif; 
+                        font-size: 11px; 
+                        line-height: 1.4;
+                        margin: 0;
+                        padding: 10px;
+                        width: 95mm;
+                    }
+                    .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 10px; }
+                    .header h2 { margin: 0; font-size: 16px; }
+                    .header p { margin: 2px 0; font-size: 10px; color: #666; }
+                    .section { margin-bottom: 10px; }
+                    .section-title { font-weight: bold; font-size: 11px; margin-bottom: 4px; background: #f5f5f5; padding: 4px 6px; }
+                    .info-row { display: flex; margin-bottom: 2px; }
+                    .info-label { width: 70px; color: #666; font-size: 10px; }
+                    .info-value { flex: 1; font-size: 10px; }
+                    table { width: 100%; border-collapse: collapse; font-size: 10px; }
+                    th { text-align: left; padding: 4px 0; border-bottom: 1px solid #333; font-size: 10px; }
+                    .total-row { font-weight: bold; font-size: 12px; border-top: 2px solid #333; }
+                    .footer { text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px dashed #999; font-size: 9px; color: #666; }
+                    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h2>📦 NOTA PENGIRIMAN</h2>
+                    <p>No. Order: <strong>${order.orderNumber}</strong></p>
+                    <p>${formatDate(order.createdAt)}</p>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">📍 PENERIMA</div>
+                    <div class="info-row"><span class="info-label">Nama:</span><span class="info-value"><strong>${order.recipientName}</strong></span></div>
+                    <div class="info-row"><span class="info-label">Telepon:</span><span class="info-value"><strong>${order.recipientPhone}</strong></span></div>
+                    <div class="info-row"><span class="info-label">Alamat:</span><span class="info-value">${order.address}</span></div>
+                    <div class="info-row"><span class="info-label">Kecamatan:</span><span class="info-value">${order.district}</span></div>
+                    <div class="info-row"><span class="info-label">Kota:</span><span class="info-value">${order.city}, ${order.province}</span></div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">🛒 DAFTAR BARANG</div>
+                    <table>
+                        <thead>
+                            <tr><th>Produk</th><th style="text-align:center">Qty</th><th style="text-align:right">Harga</th></tr>
+                        </thead>
+                        <tbody>${itemsList}</tbody>
+                    </table>
+                </div>
+
+                <div class="section">
+                    <table>
+                        <tr><td>Subtotal</td><td style="text-align:right">Rp ${(order.subtotal || 0).toLocaleString('id-ID')}</td></tr>
+                        ${order.couponDiscount ? `<tr><td>Diskon (${order.couponCode})</td><td style="text-align:right; color:green">-Rp ${order.couponDiscount.toLocaleString('id-ID')}</td></tr>` : ''}
+                        <tr><td>Ongkir (${order.courierName || 'Kurir'})</td><td style="text-align:right">Rp ${(order.shippingCost || 0).toLocaleString('id-ID')}</td></tr>
+                        <tr class="total-row"><td style="padding-top:8px">TOTAL</td><td style="padding-top:8px; text-align:right">Rp ${(order.total || 0).toLocaleString('id-ID')}</td></tr>
+                    </table>
+                </div>
+
+                <div class="footer">
+                    Terima kasih telah berbelanja!<br>
+                    Mohon cek kelengkapan barang saat diterima.
+                </div>
+            </body>
+            </html>
+        `
+        printWindow.document.write(html)
+        printWindow.document.close()
+        printWindow.onload = () => {
+            printWindow.print()
+        }
+    }
+
     return (
         <>
             <AdminHeader
@@ -345,6 +435,17 @@ function AdminOrdersPage() {
                                     <span className="text-primary">Rp {(selectedOrder.total || 0).toLocaleString('id-ID')}</span>
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Print Button */}
+                        <div className="pt-4 border-t dark:border-slate-700">
+                            <button
+                                onClick={() => handlePrintNota(selectedOrder)}
+                                className="w-full py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark transition-colors flex items-center justify-center gap-2"
+                            >
+                                <Icon name="print" size={20} />
+                                Print Nota Pengiriman
+                            </button>
                         </div>
                     </div>
                 )}
