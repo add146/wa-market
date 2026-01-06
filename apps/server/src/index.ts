@@ -19,7 +19,7 @@ import {
     uploadRoutes,
     shippingApiRoutes,
     usersRoutes,
-} from './routes';
+} from './routes/index.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
