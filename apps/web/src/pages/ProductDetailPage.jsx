@@ -121,7 +121,13 @@ function ProductDetailPage() {
 
     const handleAddToCart = () => {
         const variantInfo = [selectedColor, selectedSize].filter(Boolean).join(', ')
-        addToCart(product, quantity, variantInfo)
+        // Create product object with adjusted price for cart
+        const productWithAdjustedPrice = {
+            ...product,
+            price: adjustedPrice,
+            originalPrice: adjustedOriginalPrice,
+        }
+        addToCart(productWithAdjustedPrice, quantity, variantInfo)
     }
 
     const handleChatWhatsApp = () => {
