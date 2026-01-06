@@ -16,6 +16,7 @@ function AdminUsersPage() {
     const [newPassword, setNewPassword] = useState('')
     const [showEditNameModal, setShowEditNameModal] = useState(false)
     const [newName, setNewName] = useState('')
+    const [newPhone, setNewPhone] = useState('')
     const [actionLoading, setActionLoading] = useState(null)
 
     // Confirmation modals state
@@ -100,22 +101,28 @@ function AdminUsersPage() {
     const openEditNameModal = (user) => {
         setSelectedUser(user)
         setNewName(user.name || '')
+        setNewPhone(user.phone?.replace(/^62/, '') || '')
         setShowEditNameModal(true)
     }
 
-    const handleEditName = async () => {
+    const handleEditUser = async () => {
         if (!newName || newName.length < 2) {
             toast.error('Nama minimal 2 karakter')
             return
         }
         setActionLoading(selectedUser.id)
         try {
+            // Update name
             await api.patch(`/users/${selectedUser.id}/name`, { name: newName })
-            toast.success('Nama berhasil diubah!')
+            // Update phone if it's not a guest
+            if (selectedUser.role !== 'guest' && newPhone) {
+                await api.patch(`/users/${selectedUser.id}/phone`, { phone: `62${newPhone}` })
+            }
+            toast.success('Data berhasil diubah!')
             setShowEditNameModal(false)
             fetchUsers()
         } catch (err) {
-            toast.error('Gagal mengubah nama')
+            toast.error('Gagal mengubah data')
         } finally {
             setActionLoading(null)
         }
@@ -213,34 +220,34 @@ function AdminUsersPage() {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
-                                                {user.role !== 'guest' && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => openEditNameModal(user)}
-                                                            disabled={actionLoading === user.id}
-                                                            className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
-                                                        >
-                                                            <Icon name="edit" size={14} className="mr-1" />
-                                                            Edit
-                                                        </button>
-                                                        <button
-                                                            onClick={() => openPasswordModal(user)}
-                                                            disabled={actionLoading === user.id}
-                                                            className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
-                                                        >
-                                                            <Icon name="lock" size={14} className="mr-1" />
-                                                            Password
-                                                        </button>
-                                                    </>
-                                                )}
                                                 <button
-                                                    onClick={() => openDeleteModal(user)}
+                                                    onClick={() => openEditNameModal(user)}
                                                     disabled={actionLoading === user.id}
-                                                    className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+                                                    className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
                                                 >
-                                                    <Icon name="delete" size={14} className="mr-1" />
-                                                    Hapus
+                                                    <Icon name="edit" size={14} className="mr-1" />
+                                                    Edit
                                                 </button>
+                                                {user.role !== 'guest' && (
+                                                    <button
+                                                        onClick={() => openPasswordModal(user)}
+                                                        disabled={actionLoading === user.id}
+                                                        className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                                                    >
+                                                        <Icon name="lock" size={14} className="mr-1" />
+                                                        Password
+                                                    </button>
+                                                )}
+                                                {user.role !== 'admin' && (
+                                                    <button
+                                                        onClick={() => openDeleteModal(user)}
+                                                        disabled={actionLoading === user.id}
+                                                        className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+                                                    >
+                                                        <Icon name="delete" size={14} className="mr-1" />
+                                                        Hapus
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -288,16 +295,16 @@ function AdminUsersPage() {
                 </div>
             </Modal>
 
-            {/* Edit Name Modal */}
+            {/* Edit User Modal */}
             <Modal
                 isOpen={showEditNameModal}
                 onClose={() => setShowEditNameModal(false)}
-                title={`Edit Nama - ${selectedUser?.name}`}
+                title={`Edit User - ${selectedUser?.name}`}
             >
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                            Nama Baru
+                            Nama
                         </label>
                         <input
                             type="text"
@@ -307,6 +314,25 @@ function AdminUsersPage() {
                             className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                         />
                     </div>
+                    {selectedUser?.role !== 'guest' && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Nomor WhatsApp
+                            </label>
+                            <div className="flex">
+                                <span className="inline-flex items-center px-3 text-sm text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 border border-r-0 border-slate-200 dark:border-slate-600 rounded-l-lg">
+                                    +62
+                                </span>
+                                <input
+                                    type="tel"
+                                    value={newPhone}
+                                    onChange={(e) => setNewPhone(e.target.value.replace(/\D/g, ''))}
+                                    placeholder="812XXXXXXXX"
+                                    className="flex-1 px-4 py-2 rounded-r-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                                />
+                            </div>
+                        </div>
+                    )}
                     <div className="flex justify-end gap-3">
                         <button
                             onClick={() => setShowEditNameModal(false)}
@@ -315,7 +341,7 @@ function AdminUsersPage() {
                             Batal
                         </button>
                         <button
-                            onClick={handleEditName}
+                            onClick={handleEditUser}
                             disabled={actionLoading}
                             className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
                         >

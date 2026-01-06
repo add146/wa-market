@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import AdminHeader from '../components/organisms/AdminHeader'
 import { Icon } from '../components/atoms'
-import { settingsApi, rajaongkirApi } from '../api/client'
+import { settingsApi, rajaongkirApi, uploadApi } from '../api/client'
 import { useTheme, useToast } from '../context'
+
+const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : ''
 
 function AdminSettingsPage() {
     const { updateTheme } = useTheme()
@@ -98,8 +100,35 @@ function AdminSettingsPage() {
                                     <p className="text-xs text-slate-400 mt-1">Akan tampil di tab browser bersama nama toko</p>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Logo URL</label>
-                                    <input type="text" value={settings.logo_url || ''} onChange={(e) => handleChange('logo_url', e.target.value)} className={inputClass} />
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Logo Toko</label>
+                                    <div className="flex items-center gap-4">
+                                        {settings.logo_url && (
+                                            <img
+                                                src={settings.logo_url?.startsWith('/uploads') ? `${API_BASE}${settings.logo_url}` : settings.logo_url}
+                                                alt="Logo"
+                                                className="w-16 h-16 object-contain rounded-lg border border-slate-200 dark:border-slate-600 bg-white"
+                                            />
+                                        )}
+                                        <div className="flex-1">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={async (e) => {
+                                                    const file = e.target.files[0]
+                                                    if (!file) return
+                                                    try {
+                                                        const res = await uploadApi.upload(file)
+                                                        handleChange('logo_url', res.data.url)
+                                                        toast.success('Logo berhasil diupload!')
+                                                    } catch (err) {
+                                                        toast.error('Gagal upload logo')
+                                                    }
+                                                }}
+                                                className="w-full text-sm file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary file:text-white file:cursor-pointer"
+                                            />
+                                            <p className="text-xs text-slate-400 mt-1">📐 Ukuran ideal: 200 x 200 px (rasio 1:1)</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

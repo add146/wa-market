@@ -104,6 +104,42 @@ router.patch('/:id/name', authMiddleware, adminMiddleware, async (req: Request, 
 });
 
 /**
+ * PATCH /api/users/:id/phone
+ * Update user phone (Admin only)
+ */
+router.patch('/:id/phone', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { phone } = req.body;
+
+        if (!phone || phone.length < 10) {
+            res.status(400).json({ error: 'Phone must be at least 10 characters' });
+            return;
+        }
+
+        const [updated] = await db.update(users)
+            .set({ phone, updatedAt: new Date() })
+            .where(eq(users.id, id))
+            .returning({
+                id: users.id,
+                name: users.name,
+                phone: users.phone,
+                role: users.role,
+            });
+
+        if (!updated) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        res.json({ message: 'Phone updated successfully', user: updated });
+    } catch (error) {
+        console.error('Update phone error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * PATCH /api/users/:id/role
  * Update user role (Admin only)
  */
