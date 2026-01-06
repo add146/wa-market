@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
-import { users } from '../db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { users, orders } from '../db/schema';
+import { eq, desc, isNotNull } from 'drizzle-orm';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { authMiddleware, adminMiddleware } from '../middleware';
@@ -10,11 +10,12 @@ const router = Router();
 
 /**
  * GET /api/users
- * Get all users (Admin only)
+ * Get all users + guest customers (Admin only)
  */
 router.get('/', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
     try {
-        const result = await db.select({
+        // Get registered users
+        const registeredUsers = await db.select({
             id: users.id,
             phone: users.phone,
             name: users.name,
@@ -24,7 +25,42 @@ router.get('/', authMiddleware, adminMiddleware, async (req: Request, res: Respo
             .from(users)
             .orderBy(desc(users.createdAt));
 
-        res.json({ users: result });
+        // Get unique guest customers from orders (those without userId)
+        const guestOrders = await db.select({
+            guestPhone: orders.guestPhone,
+            recipientName: orders.recipientName,
+            createdAt: orders.createdAt,
+        })
+            .from(orders)
+            .where(isNotNull(orders.guestPhone))
+            .orderBy(desc(orders.createdAt));
+
+        // Deduplicate guests by phone number
+        const guestMap = new Map<string, { phone: string; name: string; createdAt: Date }>();
+        for (const order of guestOrders) {
+            if (order.guestPhone && !guestMap.has(order.guestPhone)) {
+                guestMap.set(order.guestPhone, {
+                    phone: order.guestPhone,
+                    name: order.recipientName,
+                    createdAt: order.createdAt,
+                });
+            }
+        }
+
+        // Convert guests to user-like format
+        const guestCustomers = Array.from(guestMap.values()).map((guest, idx) => ({
+            id: `guest-${idx}`,
+            phone: guest.phone,
+            name: guest.name,
+            role: 'guest' as const,
+            createdAt: guest.createdAt,
+        }));
+
+        // Combine and sort by createdAt
+        const allCustomers = [...registeredUsers, ...guestCustomers]
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        res.json({ users: allCustomers });
     } catch (error) {
         console.error('Get users error:', error);
         res.status(500).json({ error: 'Internal server error' });
