@@ -6,7 +6,7 @@ import { useSettings } from '../../hooks/useSettings'
 import { useOrders } from '../../hooks'
 
 /**
- * AdminLayout - Admin panel layout wrapper
+ * AdminLayout - Admin panel layout wrapper (mobile responsive)
  */
 function AdminLayout({ children, user }) {
     const { data: settings } = useSettings()
@@ -23,10 +23,11 @@ function AdminLayout({ children, user }) {
     }, [settings])
 
     return (
-        <div className="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-100 h-screen overflow-hidden flex flex-col font-display">
-            <div className="flex h-full w-full overflow-hidden">
+        <div className="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-100 min-h-screen font-display">
+            <div className="flex min-h-screen">
                 <AdminSidebar user={user} pendingCount={pendingCount} />
-                <main className="flex-1 flex flex-col h-full overflow-hidden relative">
+                {/* Main content - add top padding for mobile header */}
+                <main className="flex-1 flex flex-col min-h-screen overflow-x-hidden pt-14 lg:pt-0">
                     <Suspense fallback={<LoadingState />}>
                         {children || <Outlet />}
                     </Suspense>

@@ -4,7 +4,7 @@ import Icon from '../atoms/Icon'
 /**
  * AdminNavItem - Sidebar navigation item
  */
-function AdminNavItem({ to, icon, label, badge, isActive = false, filled = false }) {
+function AdminNavItem({ to, icon, label, badge, isActive = false, filled = false, onClick }) {
     const baseClasses = "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group"
     const activeClasses = "bg-primary/10 text-primary dark:text-primary"
     const inactiveClasses = "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
@@ -15,7 +15,7 @@ function AdminNavItem({ to, icon, label, badge, isActive = false, filled = false
         <>
             <Icon
                 name={icon}
-                size={24}
+                size={22}
                 className={`${isActive ? 'text-primary' : 'text-slate-400 group-hover:text-primary'} transition-colors`}
                 style={iconStyle}
             />
@@ -32,6 +32,7 @@ function AdminNavItem({ to, icon, label, badge, isActive = false, filled = false
         return (
             <NavLink
                 to={to}
+                onClick={onClick}
                 className={({ isActive: active }) =>
                     `${baseClasses} ${active ? activeClasses : inactiveClasses}`
                 }
@@ -44,6 +45,7 @@ function AdminNavItem({ to, icon, label, badge, isActive = false, filled = false
     return (
         <a
             href="#"
+            onClick={onClick}
             className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses}`}
         >
             {content}
