@@ -11,6 +11,8 @@
     "dev:all": "npm run dev --workspace=apps/web & npm run dev --workspace=apps/server",
     "build": "npm run build --workspace=apps/web",
     "build:server": "npm run build --workspace=apps/server",
+    "start": "npm run start --workspace=apps/server",
+    "serve": "npx serve apps/web/dist -l 5173",
     "preview": "npm run preview --workspace=apps/web",
     "db:push": "npm run db:push --workspace=apps/server",
     "db:seed": "npm run db:seed --workspace=apps/server",
