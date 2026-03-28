@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { setCookie, deleteCookie, getCookie } from 'hono/cookie';
 import { getDb } from '../db';
-import { stores, users, orders, products, sessions, courierDeliveries, subscriptions } from '../db/schema';
+import { stores, users, orders, products, sessions, courierDeliveries, subscriptions, platformSettings } from '../db/schema';
 import { eq, and, sql, count } from 'drizzle-orm';
 import { authMiddleware, superadminMiddleware, createSession, deleteSession, verifyPassword } from '../middleware/auth';
 import type { Env } from '../index';
@@ -83,6 +83,54 @@ router.post('/auth/logout', authMiddleware, async (c) => {
         return c.json({ message: 'Logged out' });
     } catch (e) {
         return c.json({ error: 'Error' }, 500);
+    }
+});
+
+// ─────────────────────────────────────
+// PLATFORM SETTINGS
+// ─────────────────────────────────────
+
+/**
+ * GET /api/superadmin/settings
+ */
+router.get('/settings', authMiddleware, superadminMiddleware, async (c) => {
+    try {
+        const db = getDb(c.env);
+        const settingsRaw = await db.select().from(platformSettings);
+        const settingsObj: Record<string, string> = {};
+        for (const s of settingsRaw) {
+            settingsObj[s.key] = s.value;
+        }
+        return c.json(settingsObj);
+    } catch (e) {
+        return c.json({ error: 'Failed to fetch settings' }, 500);
+    }
+});
+
+/**
+ * PUT /api/superadmin/settings
+ */
+router.put('/settings', authMiddleware, superadminMiddleware, async (c) => {
+    try {
+        const db = getDb(c.env);
+        const body = await c.req.json();
+
+        // Convert key-value pairs
+        for (const [key, value] of Object.entries(body)) {
+            if (typeof value === 'string') {
+                // Upsert logic (since SQLite on D1 doesn't have an exact ON CONFLICT DO UPDATE built into drizzle without conflict target)
+                // Let's do a simple delete then insert or an update fallback
+                const existing = await db.select().from(platformSettings).where(eq(platformSettings.key, key));
+                if (existing.length > 0) {
+                    await db.update(platformSettings).set({ value }).where(eq(platformSettings.key, key));
+                } else {
+                    await db.insert(platformSettings).values({ key, value });
+                }
+            }
+        }
+        return c.json({ message: 'Platform settings updated' });
+    } catch (e) {
+        return c.json({ error: 'Failed to update settings' }, 500);
     }
 });
 

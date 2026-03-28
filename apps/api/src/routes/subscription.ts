@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { getDb } from '../db';
-import { stores, subscriptions } from '../db/schema';
+import { stores, subscriptions, platformSettings } from '../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { authMiddleware } from '../middleware/auth';
 import { createXenditInvoice } from '../lib/xendit';
@@ -59,7 +59,10 @@ router.post('/create', authMiddleware, async (c) => {
         let externalId = '';
 
         if (provider === 'xendit') {
-            const secretKey = (c.env as any).XENDIT_PLATFORM_SECRET_KEY;
+            const settingsRaw = await db.select().from(platformSettings);
+            const pSet = settingsRaw.find(s => s.key === 'xendit_platform_secret_key');
+            const secretKey = pSet?.value || (c.env as any).XENDIT_PLATFORM_SECRET_KEY;
+            
             if (!secretKey) return c.json({ error: 'Platform Xendit key not configured' }, 500);
 
             const result = await createXenditInvoice(secretKey, {
@@ -77,7 +80,10 @@ router.post('/create', authMiddleware, async (c) => {
             externalId = result.data.id;
 
         } else if (provider === 'midtrans') {
-            const serverKey = (c.env as any).MIDTRANS_PLATFORM_SERVER_KEY;
+            const settingsRaw = await db.select().from(platformSettings);
+            const pSet = settingsRaw.find(s => s.key === 'midtrans_platform_server_key');
+            const serverKey = pSet?.value || (c.env as any).MIDTRANS_PLATFORM_SERVER_KEY;
+            
             if (!serverKey) return c.json({ error: 'Platform Midtrans key not configured' }, 500);
 
             const result = await createMidtransTransaction(serverKey, {

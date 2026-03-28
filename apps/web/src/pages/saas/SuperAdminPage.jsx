@@ -10,6 +10,8 @@ import {
     useUpdateStoreDomain,
     useToggleStore,
     useDeleteStore,
+    useSuperadminSettings,
+    useUpdateSuperadminSettings
 } from '../../hooks'
 import axios from 'axios'
 
@@ -82,6 +84,49 @@ function SuperAdminPage() {
     const [filterStatus, setFilterStatus] = useState('all')
     const [allSubscriptions, setAllSubscriptions] = useState([])
     const [subsLoading, setSubsLoading] = useState(false)
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return document.documentElement.classList.contains('dark')
+        }
+        return true
+    })
+
+    const { data: globalSettings, isLoading: globalSettingsLoading } = useSuperadminSettings()
+    const updateSettingsMutation = useUpdateSuperadminSettings()
+    const [localSettings, setLocalSettings] = useState({})
+
+    useEffect(() => {
+        if (globalSettings) {
+            setLocalSettings(globalSettings)
+        }
+    }, [globalSettings])
+
+    // Toggle dark mode
+    const toggleTheme = () => {
+        const root = document.documentElement
+        const newDark = !isDarkMode
+        if (newDark) {
+            root.classList.add('dark')
+            root.classList.remove('light')
+        } else {
+            root.classList.add('light')
+            root.classList.remove('dark')
+        }
+        setIsDarkMode(newDark)
+    }
+
+    const handleSettingChange = (key, val) => {
+        setLocalSettings(prev => ({ ...prev, [key]: val }))
+    }
+
+    const handleSaveSettings = async () => {
+        try {
+            await updateSettingsMutation.mutateAsync(localSettings)
+            alert('Pengaturan berhasil disimpan')
+        } catch (e) {
+            alert('Gagal menyimpan pengaturan')
+        }
+    }
 
     // Fetch all subscriptions when tab is active
     useEffect(() => {
@@ -157,6 +202,7 @@ function SuperAdminPage() {
         { id: 'stores',   label: 'Kelola Toko', icon: 'storefront' },
         { id: 'subscriptions', label: 'Langganan', icon: 'credit_card' },
         { id: 'plans',    label: 'Paket & Fitur', icon: 'workspace_premium' },
+        { id: 'settings', label: 'Pengaturan Platform', icon: 'settings' },
     ]
 
     return (
@@ -175,8 +221,15 @@ function SuperAdminPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
+                        <button
+                            onClick={toggleTheme}
+                            className="text-slate-400 hover:text-slate-200 bg-slate-800 p-2 rounded-lg transition-colors border border-slate-700 hover:border-slate-500"
+                            title="Ganti Tema"
+                        >
+                            <Icon name={isDarkMode ? 'light_mode' : 'dark_mode'} size={18} />
+                        </button>
                         <span className="text-xs font-medium text-slate-400 hidden sm:inline">
-                            {session.user.name} ({session.user.phone})
+                            {session?.user?.name} ({session?.user?.phone})
                         </span>
                         <button
                             onClick={handleLogout}
@@ -491,6 +544,73 @@ function SuperAdminPage() {
                                             ))}
                                         </tbody>
                                     </table>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ─── Tab: Pengaturan Platform ─── */}
+                {activeTab === 'settings' && (
+                    <div className="space-y-6 max-w-2xl">
+                        <div>
+                            <h2 className="text-xl font-bold text-white mb-1">Pengaturan Platform</h2>
+                            <p className="text-slate-400 text-sm">Konfigurasi API Keys untuk Payment Gateway level platform (untuk pembayaran langganan SaaS).</p>
+                        </div>
+
+                        {globalSettingsLoading ? (
+                            <div className="flex justify-center py-12"><Icon name="sync" size={32} className="animate-spin text-indigo-400" /></div>
+                        ) : (
+                            <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 space-y-6">
+                                {/* Xendit */}
+                                <div>
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+                                        <Icon name="payments" size={20} className="text-blue-400" /> Xendit (Platform)
+                                    </h3>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-300 mb-1.5">Secret Key</label>
+                                            <input 
+                                                type="password"
+                                                value={localSettings.xendit_platform_secret_key || ''}
+                                                onChange={e => handleSettingChange('xendit_platform_secret_key', e.target.value)}
+                                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                placeholder="xnd_production_..."
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr className="border-slate-700" />
+
+                                {/* Midtrans */}
+                                <div>
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+                                        <Icon name="credit_card" size={20} className="text-emerald-400" /> Midtrans (Platform)
+                                    </h3>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-300 mb-1.5">Server Key</label>
+                                            <input 
+                                                type="password"
+                                                value={localSettings.midtrans_platform_server_key || ''}
+                                                onChange={e => handleSettingChange('midtrans_platform_server_key', e.target.value)}
+                                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                placeholder="Mid-server-..."
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 flex justify-end">
+                                    <button
+                                        onClick={handleSaveSettings}
+                                        disabled={updateSettingsMutation.isPending}
+                                        className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {updateSettingsMutation.isPending ? <Icon name="sync" size={18} className="animate-spin" /> : <Icon name="save" size={18} />}
+                                        Simpan Pengaturan
+                                    </button>
                                 </div>
                             </div>
                         )}

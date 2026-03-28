@@ -12,6 +12,14 @@ const generateId = () => crypto.randomUUID();
 const now = () => new Date();
 
 // ============================================
+// PLATFORM SETTINGS TABLE (Global Superadmin Config)
+// ============================================
+export const platformSettings = sqliteTable('platform_settings', {
+    key: text('key').primaryKey(),
+    value: text('value').notNull(),
+});
+
+// ============================================
 // STORES TABLE (SaaS Multi-tenant)
 // ============================================
 export const stores = sqliteTable('stores', {

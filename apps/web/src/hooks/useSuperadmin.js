@@ -129,3 +129,26 @@ export function useDeleteStore() {
         }
     })
 }
+
+export function useSuperadminSettings() {
+    return useQuery({
+        queryKey: ['sa-settings'],
+        queryFn: async () => {
+            const { data } = await superAdminApi.get('/superadmin/settings')
+            return data
+        }
+    })
+}
+
+export function useUpdateSuperadminSettings() {
+    const qc = useQueryClient()
+    return useMutation({
+        mutationFn: async (settings) => {
+            const { data } = await superAdminApi.put('/superadmin/settings', settings)
+            return data
+        },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['sa-settings'] })
+        }
+    })
+}
