@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Icon, Badge } from '../atoms'
 import { ProductPrice } from '../molecules'
 import { useCart } from '../../context'
@@ -10,6 +10,7 @@ const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.rep
  * ProductCard - Individual product card
  */
 function ProductCard({ product }) {
+    const navigate = useNavigate()
     const { addToCart } = useCart()
     const { data: whatsappKasir } = useSetting('whatsapp_kasir')
 
@@ -47,7 +48,7 @@ function ProductCard({ product }) {
         e.stopPropagation()
         // Add to cart and go to checkout
         addToCart(product, 1)
-        window.location.href = '/checkout'
+        navigate('/checkout')
     }
 
     return (
