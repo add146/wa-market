@@ -25,6 +25,8 @@ const UnauthorizedPage = lazy(() => import('./pages/UnauthorizedPage'))
 const MyOrdersPage = lazy(() => import('./pages/MyOrdersPage'))
 const CourierDashboardPage = lazy(() => import('./pages/CourierDashboardPage'))
 const PaymentStatusPage = lazy(() => import('./pages/PaymentStatusPage'))
+const WishlistPage = lazy(() => import('./pages/WishlistPage'))
+const AccountPage = lazy(() => import('./pages/AccountPage'))
 
 // Admin pages
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'))
@@ -45,7 +47,24 @@ const AdminCouriersPage = lazy(() => import('./pages/AdminCouriersPage'))
 function StorefrontApp() {
     return (
         <Routes>
-            {/* Auth Routes */}
+            <Route
+                path="/wishlist"
+                element={
+                    <Suspense fallback={<LoadingState />}>
+                        <WishlistPage />
+                    </Suspense>
+                }
+            />
+            <Route
+                path="/account"
+                element={
+                    <Suspense fallback={<LoadingState />}>
+                        <AccountPage />
+                    </Suspense>
+                }
+            />
+
+            {/* Admin Routes */}
             <Route
                 path="/login"
                 element={

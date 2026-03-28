@@ -1,0 +1,1 @@
+const i={timeZone:"Asia/Jakarta"};function e(t){return t?new Date(t).toLocaleDateString("id-ID",{...i,day:"2-digit",month:"short",year:"numeric"}):"-"}function r(t){return t?new Date(t).toLocaleDateString("id-ID",{...i,day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"-"}export{e as a,r as f};

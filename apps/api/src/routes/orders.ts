@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
 import { getDb } from '../db';
 import { orders, orderItems, products, storeSettings, users, courierDeliveries } from '../db/schema';
-import { eq, and, desc } from 'drizzle-orm';
-import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth';
-import { formatOrderMessage, sendWahaMessage, generateWhatsAppUrl, formatCourierNotification } from '../lib/whatsapp';
+import { eq, and, desc, inArray } from 'drizzle-orm';
+import { authMiddleware, optionalAuthMiddleware, hashPassword } from '../middleware/auth';
+import { formatOrderMessage, sendWahaMessage, generateWhatsAppUrl, formatCourierNotification, formatDigitalDeliveryMessage } from '../lib/whatsapp';
 import type { Env } from '../index';
 
 type Variables = { store: any, user: any };
@@ -63,11 +63,63 @@ router.post('/', optionalAuthMiddleware, async (c) => {
         const subtotal = body.shippingCost + body.items.reduce((acc: number, item: any) => acc + (item.quantity * item.price), 0);
         const total = subtotal;
 
+        // Fetch products to check for 'digital' and 'preorder' types
+        const productIds = body.items.map((item: any) => item.productId);
+        const productsInCart = await db.select().from(products).where(inArray(products.id, productIds));
+        
+        let hasDigitalItems = false;
+        let hasPreorderItems = false;
+        let maxPreorderDays = 0;
+
+        for (const p of productsInCart) {
+            if (p.productType === 'digital') {
+                hasDigitalItems = true;
+            } else if (p.productType === 'preorder') {
+                hasPreorderItems = true;
+                if (p.preorderDays && p.preorderDays > maxPreorderDays) {
+                    maxPreorderDays = p.preorderDays;
+                }
+            }
+        }
+
+        let orderUserId = user ? user.id : null;
+        let generatedPassword = null;
+        let orderPhone = body.guestPhone || body.recipientPhone;
+
+        const standardizePhone = (p: string): string => {
+            let cleaned = p.replace(/[^\d+]/g, '');
+            cleaned = cleaned.replace(/^\+/, '');
+            if (cleaned.startsWith('0')) cleaned = '62' + cleaned.substring(1);
+            if (!cleaned.startsWith('62')) cleaned = '62' + cleaned;
+            return cleaned;
+        };
+
+        if (!user && orderPhone) {
+            const cleanPhone = standardizePhone(orderPhone);
+            const [existingUser] = await db.select().from(users).where(
+                and(eq(users.phone, cleanPhone), eq(users.storeId, store.id))
+            );
+            if (existingUser) {
+                orderUserId = existingUser.id;
+            } else {
+                generatedPassword = Math.floor(1000 + Math.random() * 9000).toString();
+                const hashedPwd = await hashPassword(generatedPassword);
+                const [newUser] = await db.insert(users).values({
+                    storeId: store.id,
+                    phone: cleanPhone,
+                    password: hashedPwd,
+                    name: body.recipientName || 'Pelanggan',
+                    role: 'customer'
+                }).returning();
+                orderUserId = newUser.id;
+            }
+        }
+
         // Create Order
         const [insertedOrder] = await db.insert(orders).values({
             storeId: store.id,
             orderNumber,
-            userId: user ? user.id : null,
+            userId: orderUserId,
             guestPhone: body.guestPhone || null,
             recipientName: body.recipientName,
             recipientPhone: body.recipientPhone,
@@ -82,7 +134,13 @@ router.post('/', optionalAuthMiddleware, async (c) => {
             shippingCost: body.shippingCost || 0,
             subtotal,
             total,
-            status: 'pending'
+            status: 'pending',
+            paymentMethod: body.paymentMethod === 'cod' ? 'cod' : 'whatsapp',
+            deliverySlot: body.deliverySlot || null,
+            hasDigitalItems,
+            hasPreorderItems,
+            maxPreorderDays,
+            digitalDeliveryStatus: hasDigitalItems ? 'pending' : null,
         }).returning();
 
         // Insert Items
@@ -109,7 +167,13 @@ router.post('/', optionalAuthMiddleware, async (c) => {
         let whatsappUrl = '';
         let whatsappSent = false;
 
-        const messageText = formatOrderMessage(insertedOrder, itemsToInsert, storeName, body.paymentMethod || 'manual');
+        const messageText = formatOrderMessage(
+            insertedOrder, 
+            itemsToInsert, 
+            storeName, 
+            body.paymentMethod || 'manual',
+            generatedPassword ? { phone: standardizePhone(orderPhone), password: generatedPassword } : undefined
+        );
 
         if (kasirPhone) {
             if (wahaUrl && wahaUrl.trim() !== '') {
@@ -134,9 +198,12 @@ router.post('/', optionalAuthMiddleware, async (c) => {
             whatsappUrl,
             whatsappSent
         }, 201);
-    } catch (e) {
+    } catch (e: any) {
         console.error('Checkout error:', e);
-        return c.json({ error: 'Internal Error' }, 500);
+        if (e.message && e.message.includes('FOREIGN KEY constraint failed')) {
+            return c.json({ error: 'Beberapa produk di keranjang Anda sudah dihapus oleh Admin. Silakan bersihkan keranjang Anda dan coba pesan kembali.' }, 400);
+        }
+        return c.json({ error: 'Internal Server Error' }, 500);
     }
 });
 
@@ -229,6 +296,84 @@ router.post('/:id/assign-courier', authMiddleware, async (c) => {
 
     } catch (e) {
         console.error('Assign courier error:', e);
+        return c.json({ error: 'Internal Error' }, 500);
+    }
+});
+
+/**
+ * PATCH /api/s/:slug/orders/:id/deliver-digital (Admin)
+ * Sends digital product content to the buyer via WhatsApp/Email
+ */
+router.patch('/:id/deliver-digital', authMiddleware, async (c) => {
+    try {
+        const db = getDb(c.env);
+        const store = c.get('store');
+        const user: any = c.get('user');
+        const orderId = c.req.param('id') as string;
+        
+        if (user.role !== 'admin' && user.role !== 'superadmin' && user.role !== 'seller') {
+            return c.json({ error: 'Forbidden' }, 403);
+        }
+
+        // Get Order
+        const [order] = await db.select().from(orders).where(
+            and(eq(orders.id, orderId), eq(orders.storeId, store.id))
+        );
+        if (!order) return c.json({ error: 'Order not found' }, 404);
+
+        if (!order.hasDigitalItems) {
+            return c.json({ error: 'Order does not contain digital items' }, 400);
+        }
+
+        // Get Order Items and associated products for digital content
+        const ordItems = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+        const productIds = ordItems.map(item => item.productId);
+        const productsInOrder = await db.select().from(products).where(inArray(products.id, productIds));
+
+        // Get Settings for WAHA
+        const allSettings = await db.select().from(storeSettings).where(eq(storeSettings.storeId, store.id));
+        const getConfig = (key: string) => allSettings.find(s => s.key === key)?.value || '';
+        
+        const wahaUrl = getConfig('waha_server_url');
+        const wahaKey = getConfig('waha_api_key');
+        const wahaSession = getConfig('waha_session') || 'default';
+        const storeName = getConfig('store_name') || store.name;
+        
+        // Prepare digital payload
+        const digitalContents = productsInOrder
+            .filter(p => p.productType === 'digital')
+            .map(p => ({ name: p.name, content: p.digitalContent || 'Konten akan dikirimkan secara terpisah/menyusul.' }));
+
+        const messageText = formatDigitalDeliveryMessage(order, digitalContents, storeName);
+        
+        let whatsappSent = false;
+        let whatsappUrl = '';
+        
+        // Only send if phone exists
+        if (order.recipientPhone) {
+            if (wahaUrl && wahaUrl.trim() !== '') {
+                const success = await sendWahaMessage(wahaUrl, wahaKey, wahaSession, order.recipientPhone, messageText);
+                if (success) {
+                    whatsappSent = true;
+                } else {
+                    whatsappUrl = generateWhatsAppUrl(order.recipientPhone, messageText);
+                }
+            } else {
+                whatsappUrl = generateWhatsAppUrl(order.recipientPhone, messageText);
+            }
+        }
+
+        // Update digital status
+        await db.update(orders).set({ digitalDeliveryStatus: 'sent' }).where(eq(orders.id, orderId));
+
+        return c.json({
+            message: 'Digital delivery processed',
+            whatsappSent,
+            whatsappUrl
+        });
+
+    } catch (e) {
+        console.error('Deliver digital error:', e);
         return c.json({ error: 'Internal Error' }, 500);
     }
 });

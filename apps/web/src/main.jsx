@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { CartProvider, AuthProvider, ThemeProvider, SearchProvider, ToastProvider } from './context'
+import { CartProvider, AuthProvider, ThemeProvider, SearchProvider, ToastProvider, WishlistProvider } from './context'
 import './index.css'
 import App from './App.jsx'
 
@@ -25,7 +25,7 @@ const queryClient = new QueryClient({
 async function resolveDomain() {
     const hostname = window.location.hostname;
     // Known platform domains that don't need resolution
-    const platformDomains = ['localhost', '127.0.0.1', 'wa-market-web.pages.dev', 'wa-market.com'];
+    const platformDomains = ['localhost', '127.0.0.1', 'wa-market-web.pages.dev', 'wa-market.com', 'unikasik.com'];
     
     // Check if we already have /s/ in URL
     const pathname = window.location.pathname;
@@ -59,22 +59,24 @@ resolveDomain().then(({ slug, basename, isUnresolvedDomain }) => {
             <QueryClientProvider client={queryClient}>
                 <ThemeProvider>
                     <AuthProvider>
-                        <CartProvider>
-                            <SearchProvider>
-                                <ToastProvider>
-                                    <BrowserRouter basename={basename}>
-                                        {isUnresolvedDomain ? (
-                                            <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'sans-serif' }}>
-                                                <h2>Domain Not Found</h2>
-                                                <p>This custom domain has not been registered or is inactive on our platform.</p>
-                                            </div>
-                                        ) : (
-                                            <App slug={slug} />
-                                        )}
-                                    </BrowserRouter>
-                                </ToastProvider>
-                            </SearchProvider>
-                        </CartProvider>
+                        <WishlistProvider>
+                            <CartProvider>
+                                <SearchProvider>
+                                    <ToastProvider>
+                                        <BrowserRouter basename={basename}>
+                                            {isUnresolvedDomain ? (
+                                                <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'sans-serif' }}>
+                                                    <h2>Domain Not Found</h2>
+                                                    <p>This custom domain has not been registered or is inactive on our platform.</p>
+                                                </div>
+                                            ) : (
+                                                <App slug={slug} />
+                                            )}
+                                        </BrowserRouter>
+                                    </ToastProvider>
+                                </SearchProvider>
+                            </CartProvider>
+                        </WishlistProvider>
                     </AuthProvider>
                 </ThemeProvider>
             </QueryClientProvider>

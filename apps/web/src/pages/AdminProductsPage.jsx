@@ -36,6 +36,9 @@ function AdminProductsPage() {
         stock: '',
         weight: '500',
         categoryId: '',
+        productType: 'regular',
+        preorderDays: '0',
+        digitalContent: '',
         images: ['', '', ''],
         variants: []
     })
@@ -66,6 +69,9 @@ function AdminProductsPage() {
             stock: '',
             weight: '500',
             categoryId: '',
+            productType: 'regular',
+            preorderDays: '0',
+            digitalContent: '',
             images: ['', '', ''],
             variants: []
         })
@@ -112,6 +118,9 @@ function AdminProductsPage() {
                 stock: fullProduct.stock?.toString() || '',
                 weight: fullProduct.weight?.toString() || '500',
                 categoryId: fullProduct.categoryId || '',
+                productType: fullProduct.productType || 'regular',
+                preorderDays: fullProduct.preorderDays?.toString() || '0',
+                digitalContent: fullProduct.digitalContent || '',
                 images: existingImages,
                 variants: (fullProduct.variants || []).map(v => ({
                     ...v,
@@ -138,6 +147,9 @@ function AdminProductsPage() {
                 stock: product.stock?.toString() || '',
                 weight: product.weight?.toString() || '500',
                 categoryId: product.categoryId || '',
+                productType: product.productType || 'regular',
+                preorderDays: product.preorderDays?.toString() || '0',
+                digitalContent: product.digitalContent || '',
                 images: [existingImage, '', ''],
                 variants: []
             })
@@ -189,6 +201,9 @@ function AdminProductsPage() {
                 stock: parseInt(formData.stock) || 0,
                 weight: parseInt(formData.weight) || 500,
                 categoryId: formData.categoryId || null,
+                productType: formData.productType,
+                preorderDays: parseInt(formData.preorderDays) || 0,
+                digitalContent: formData.digitalContent,
                 images: finalImages,
                 variants: formData.variants.map(v => ({
                     type: v.type,
@@ -311,9 +326,21 @@ function AdminProductsPage() {
                                         <span className="text-primary font-bold">
                                             Rp {(product.price || 0).toLocaleString('id-ID')}
                                         </span>
-                                        <span className="text-xs text-slate-500">
-                                            Stok: {product.stock || 0}
-                                        </span>
+                                        <div className="flex flex-col items-end gap-1">
+                                            <span className="text-xs text-slate-500">
+                                                Stok: {product.productType === 'digital' ? 'Unlimited' : (product.stock || 0)}
+                                            </span>
+                                            {product.productType === 'preorder' && (
+                                                <span className="text-[10px] px-2 py-0.5 bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 rounded">
+                                                    PO {product.preorderDays} Hari
+                                                </span>
+                                            )}
+                                            {product.productType === 'digital' && (
+                                                <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded">
+                                                    Digital
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="flex gap-2">
                                         <button
@@ -357,21 +384,71 @@ function AdminProductsPage() {
                         />
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            Kategori
-                        </label>
-                        <select
-                            value={formData.categoryId}
-                            onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                        >
-                            <option value="">Pilih Kategori</option>
-                            {categories.map(cat => (
-                                <option key={cat.id} value={cat.id}>{cat.name}</option>
-                            ))}
-                        </select>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Kategori
+                            </label>
+                            <select
+                                value={formData.categoryId}
+                                onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                            >
+                                <option value="">Pilih Kategori</option>
+                                {categories.map(cat => (
+                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Tipe Produk
+                            </label>
+                            <select
+                                value={formData.productType}
+                                onChange={(e) => setFormData({ ...formData, productType: e.target.value })}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                            >
+                                <option value="regular">Fisik (Reguler)</option>
+                                <option value="preorder">Pre-Order (PO)</option>
+                                <option value="digital">Digital (Tanpa Kurir)</option>
+                            </select>
+                        </div>
                     </div>
+
+                    {formData.productType === 'preorder' && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Waktu Pre-Order (Hari) *
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                value={formData.preorderDays}
+                                onChange={(e) => setFormData({ ...formData, preorderDays: e.target.value })}
+                                placeholder="Contoh: 7"
+                                required={formData.productType === 'preorder'}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                            />
+                        </div>
+                    )}
+
+                    {formData.productType === 'digital' && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Konten Digital (Link/Instruksi) *
+                            </label>
+                            <p className="text-xs text-slate-500 mb-1">Akan dikirimkan otomatis via WhatsApp setelah Order disetujui (Approve).</p>
+                            <textarea
+                                value={formData.digitalContent}
+                                onChange={(e) => setFormData({ ...formData, digitalContent: e.target.value })}
+                                rows={2}
+                                placeholder="Link Google Drive, Kode Lisensi, dll..."
+                                required={formData.productType === 'digital'}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                            />
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -424,29 +501,33 @@ function AdminProductsPage() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Stok
-                            </label>
-                            <input
-                                type="number"
-                                value={formData.stock}
-                                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Berat (gram)
-                            </label>
-                            <input
-                                type="number"
-                                value={formData.weight}
-                                onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                                placeholder="500"
-                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                            />
-                        </div>
+                        {formData.productType !== 'digital' && (
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                    Stok
+                                </label>
+                                <input
+                                    type="number"
+                                    value={formData.stock}
+                                    onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                                />
+                            </div>
+                        )}
+                        {formData.productType !== 'digital' && (
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                    Berat (gram)
+                                </label>
+                                <input
+                                    type="number"
+                                    value={formData.weight}
+                                    onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                                    placeholder="500"
+                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <div>

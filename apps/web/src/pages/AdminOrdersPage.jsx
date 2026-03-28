@@ -4,6 +4,7 @@ import { Icon, Modal } from '../components/atoms'
 import { useOrders, useAdminCouriers, useAssignCourier } from '../hooks'
 import { ordersApi } from '../api/client'
 import { useAuth, useToast } from '../context'
+import { formatDateTimeWIB } from '../utils/dateWIB'
 
 /**
  * AdminOrdersPage - Order list with approve/delete actions (admin only)
@@ -144,21 +145,28 @@ function AdminOrdersPage() {
         }
     }
 
+    const handleDeliverDigital = async (orderId) => {
+        setActionLoading(orderId)
+        try {
+            const result = await ordersApi.deliverDigital(orderId)
+            toast.success('Berhasil memproses pengiriman digital')
+            if (result.data?.whatsappUrl) {
+                window.open(result.data.whatsappUrl, '_blank')
+            }
+            refetch?.()
+        } catch (error) {
+            toast.error('Gagal mengirim produk digital: ' + (error.message || 'Unknown error'))
+        } finally {
+            setActionLoading(null)
+        }
+    }
+
     const openDetail = (order) => {
         setSelectedOrder(order)
         setShowDetailModal(true)
     }
 
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '-'
-        return new Date(dateStr).toLocaleString('id-ID', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        })
-    }
+    const formatDate = (dateStr) => formatDateTimeWIB(dateStr)
 
     const formatPhone = (phone) => {
         if (!phone) return '-'
@@ -307,6 +315,21 @@ function AdminOrdersPage() {
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
                                                     {getStatusLabel(order.status)}
                                                 </span>
+                                                {order.paymentMethod === 'cod' && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
+                                                        COD
+                                                    </span>
+                                                )}
+                                                {order.hasPreorderItems && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" title="Pre-Order">
+                                                        PO {order.maxPreorderDays} Hari
+                                                    </span>
+                                                )}
+                                                {order.hasDigitalItems && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" title="Produk Digital">
+                                                        Digital
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-4 text-sm">
                                                 <span className="text-slate-700 dark:text-slate-300 font-medium">
@@ -325,8 +348,20 @@ function AdminOrdersPage() {
                                                     {formatDate(order.createdAt)}
                                                 </span>
                                             </div>
-                                            <div className="mt-1 text-sm font-semibold text-primary">
-                                                Rp {(order.total || 0).toLocaleString('id-ID')}
+                                            <div className="mt-1 flex items-center gap-3">
+                                                <span className="text-sm font-semibold text-primary">
+                                                    Rp {(order.total || 0).toLocaleString('id-ID')}
+                                                </span>
+                                                {order.status === 'pending' && (
+                                                    <a
+                                                        href={`https://wa.me/${(order.recipientPhone || order.guestPhone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`Halo ${order.recipientName}, pesanan *#${order.orderNumber}* senilai *Rp ${(order.total || 0).toLocaleString('id-ID')}* sudah kami terima. ${order.paymentMethod === 'cod' ? 'Pesanan akan segera disiapkan dan dikirim melalui kurir toko. Mohon siapkan uang tunai saat pesanan tiba.' : 'Mohon segera selesaikan pembayaran agar pesanan bisa segera diproses. Terima kasih! 🙏'}`)}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-full hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+                                                    >
+                                                        <Icon name="chat" size={12} /> Follow Up
+                                                    </a>
+                                                )}
                                             </div>
                                         </div>
 
@@ -464,7 +499,7 @@ function AdminOrdersPage() {
                         <div>
                             <div className="flex justify-between items-center mb-2">
                                 <h4 className="font-semibold text-slate-900 dark:text-white">🚚 Pengiriman</h4>
-                                {(selectedOrder.status === 'pending' || selectedOrder.status === 'approved') && isAdmin && (
+                                {(selectedOrder.status === 'pending' || selectedOrder.status === 'approved') && isAdmin && selectedOrder.shippingType !== 'digital' && (
                                     <button
                                         onClick={() => openAssignModal(selectedOrder)}
                                         className="text-xs font-medium px-3 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors flex items-center gap-1"
@@ -484,6 +519,9 @@ function AdminOrdersPage() {
                                         {selectedOrder.shippingType === 'own_courier' ? '🛵 Kurir Toko' : '📦 Jasa Paket'}
                                     </span>
                                 </p>
+                                {selectedOrder.shippingType === 'own_courier' && selectedOrder.deliverySlot && (
+                                    <p><strong>Jadwal Kirim:</strong> {selectedOrder.deliverySlot}</p>
+                                )}
                                 <p><strong>Penyedia / Kurir:</strong> {selectedOrder.courierName}</p>
                                 <p><strong>Ongkir:</strong> Rp {(selectedOrder.shippingCost || 0).toLocaleString('id-ID')}</p>
                             </div>
@@ -519,6 +557,28 @@ function AdminOrdersPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Digital Delivery Action */}
+                        {selectedOrder.hasDigitalItems && (
+                            <div className="border-t dark:border-slate-700 pt-4">
+                                <div className="flex justify-between items-center bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-900/50">
+                                    <div>
+                                        <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">📧 Pengiriman Digital</h4>
+                                        <p className="text-xs text-blue-700 dark:text-blue-300">
+                                            Status: {selectedOrder.digitalDeliveryStatus === 'sent' ? '✅ Sudah Dikirim' : '⏳ Belum Dikirim'}
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => handleDeliverDigital(selectedOrder.id)}
+                                        disabled={actionLoading === selectedOrder.id}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        <Icon name="send" size={18} />
+                                        {actionLoading === selectedOrder.id ? 'Mengirim...' : 'Kirim Link/File'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Print Button */}
                         <div className="pt-4 border-t dark:border-slate-700">

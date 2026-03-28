@@ -36,6 +36,27 @@
       "when": 1774675514191,
       "tag": "0004_friendly_luckman",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1774689254060,
+      "tag": "0005_woozy_frightful_four",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1774691886712,
+      "tag": "0006_needy_puck",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1774697459631,
+      "tag": "0007_strange_mandrill",
+      "breakpoints": true
     }
   ]
 }

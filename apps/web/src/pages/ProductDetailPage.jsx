@@ -10,8 +10,9 @@ import {
     ShippingInfo
 } from '../components/organisms'
 import { useProduct, useShippingOptions, useSetting } from '../hooks'
-import { useCart } from '../context'
+import { useCart, useAuth, useWishlist } from '../context'
 import LoadingState from '../components/atoms/LoadingState'
+import { useNavigate } from 'react-router-dom'
 
 const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : ''
 
@@ -28,6 +29,9 @@ const getImageUrl = (url) => {
  */
 function ProductDetailPage() {
     const { id } = useParams()
+    const navigate = useNavigate()
+    const { isAuthenticated } = useAuth()
+    const { isWishlisted, toggleWishlist } = useWishlist()
 
     // Fetch product data from API
     const { data: product, isLoading, isError, error } = useProduct(id)
@@ -130,6 +134,14 @@ function ProductDetailPage() {
         addToCart(productWithAdjustedPrice, quantity, variantInfo)
     }
 
+    const handleWishlistToggle = async () => {
+        if (!isAuthenticated) {
+            navigate('/login')
+            return
+        }
+        await toggleWishlist(product.id)
+    }
+
     const handleChatWhatsApp = () => {
         const variantInfo = [selectedColor, selectedSize].filter(Boolean).join(', ')
         const message = encodeURIComponent(
@@ -159,6 +171,20 @@ function ProductDetailPage() {
                             rating={rating}
                             reviewCount={reviewCount}
                         />
+
+                        {product.productType === 'preorder' && (
+                            <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-lg text-sm font-medium border border-orange-200 dark:border-orange-800/30">
+                                <span>⏳</span>
+                                <span>Produk Pre-Order — Estimasi pengiriman {product.preorderDays} hari setelah pembayaran.</span>
+                            </div>
+                        )}
+
+                        {product.productType === 'digital' && (
+                            <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg text-sm font-medium border border-blue-200 dark:border-blue-800/30">
+                                <span>📧</span>
+                                <span>Produk Digital — Bebas ongkir, dikirim via WhatsApp/Email setelah dikonfirmasi.</span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Price */}
@@ -182,11 +208,13 @@ function ProductDetailPage() {
 
                     {/* Actions */}
                     <ProductActions
-                        stock={product.stock}
+                        stock={product.productType === 'digital' ? 999999 : product.stock} // Fake infinite stock for UI
                         quantity={quantity}
                         onQuantityChange={setQuantity}
                         onAddToCart={handleAddToCart}
                         onChatWhatsApp={handleChatWhatsApp}
+                        isWishlisted={isWishlisted(product.id)}
+                        onWishlistToggle={handleWishlistToggle}
                     />
 
                     {/* Info Sections */}

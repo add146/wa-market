@@ -10,6 +10,7 @@ import { Icon } from '../components/atoms'
 import { useCreateOrder, useValidateCoupon, useSetting } from '../hooks'
 import api, { rajaongkirApi, productsApi, paymentApi } from '../api/client'
 import { useCart, useAuth } from '../context'
+import { getDistanceKm, geocodeAddress } from '../utils/geo'
 
 /**
  * CheckoutPage - Main checkout page with RajaOngkir Direct Search
@@ -30,6 +31,19 @@ function CheckoutPage() {
     const { data: paymentGatewayEnabled } = useSetting('payment_gateway_enabled')
     const { data: paymentProvider } = useSetting('payment_provider')
     const isPaymentGatewayEnabled = paymentGatewayEnabled === 'true' || paymentGatewayEnabled === true
+
+    // Store GPS & delivery radius settings
+    const { data: storeLat } = useSetting('store_lat')
+    const { data: storeLng } = useSetting('store_lng')
+    const { data: storeDeliveryRadius } = useSetting('store_delivery_radius')
+    const { data: storeDeliveryCost } = useSetting('store_delivery_cost')
+    const ownCourierCost = storeDeliveryCost ? parseInt(storeDeliveryCost, 10) : 0
+    const hasStoreGps = storeLat && storeLng && parseFloat(storeLat) && parseFloat(storeLng)
+    const maxRadius = storeDeliveryRadius ? parseFloat(storeDeliveryRadius) : null
+
+    // Delivery schedule settings
+    const { data: deliveryScheduleRaw } = useSetting('delivery_schedule')
+    const { data: deliveryHoursAfterPayment } = useSetting('delivery_hours_after_payment')
 
     // Order mutation
     const createOrder = useCreateOrder()
@@ -92,50 +106,83 @@ function CheckoutPage() {
     const [gpsLoading, setGpsLoading] = useState(false)
     const [gpsError, setGpsError] = useState('')
 
-    // Enriched cart items with fresh weights from API
-    const [productWeights, setProductWeights] = useState({})
+    // Radius validation state
+    const [distanceToStore, setDistanceToStore] = useState(null) // km
+    const [isWithinRadius, setIsWithinRadius] = useState(null) // true/false/null
 
-    // Fetch fresh product weights on mount
+    // Address geocoding state (fallback for radius validation)
+    const [deliveryAddressSearch, setDeliveryAddressSearch] = useState('')
+    const [geocodeResults, setGeocodeResults] = useState([])
+    const [geocodeLoading, setGeocodeLoading] = useState(false)
+    const [hasGeocodeSearched, setHasGeocodeSearched] = useState(false)
+    const [selectedGeocode, setSelectedGeocode] = useState(null) // { lat, lng, displayName }
+    const [geocodeDistance, setGeocodeDistance] = useState(null)
+    const [geocodeWithinRadius, setGeocodeWithinRadius] = useState(null)
+
+    // Selected delivery time slot (for own courier)
+    const [selectedDeliverySlot, setSelectedDeliverySlot] = useState(null) // { date, time, label }
+
+    // Enriched cart items with fresh weights from API
+    const [fetchedProducts, setFetchedProducts] = useState({})
+
+    // Fetch fresh product info on mount
     useEffect(() => {
-        const fetchProductWeights = async () => {
+        const fetchProductInfo = async () => {
             if (cartItems.length === 0) return
 
             try {
                 // Get unique product IDs
                 const productIds = [...new Set(cartItems.map(item => item.productId))]
-                const weights = {}
+                const productsInfo = {}
 
-                // Fetch each product to get fresh weight
+                // Fetch each product to get fresh weight, productType, preorderDays
                 for (const productId of productIds) {
                     try {
                         const response = await productsApi.getById(productId)
-                        if (response.data?.weight) {
-                            weights[productId] = response.data.weight
+                        if (response.data) {
+                            productsInfo[productId] = response.data
                         }
                     } catch (err) {
-                        console.log('Could not fetch weight for product:', productId)
+                        console.log('Could not fetch info for product:', productId)
                     }
                 }
 
-                setProductWeights(weights)
+                setFetchedProducts(productsInfo)
             } catch (error) {
                 console.error('Error fetching product weights:', error)
             }
         }
 
-        fetchProductWeights()
+        fetchProductInfo()
     }, [cartItems])
+
+    // Compute cart summary info
+    const isOnlyDigital = cartItems.length > 0 && cartItems.every(item => {
+        const p = fetchedProducts[item.productId]
+        return p?.productType === 'digital'
+    })
+    const hasDigital = cartItems.some(item => fetchedProducts[item.productId]?.productType === 'digital')
+    const hasPreorder = cartItems.some(item => fetchedProducts[item.productId]?.productType === 'preorder')
+    const maxPreorderDays = cartItems.reduce((max, item) => {
+        const p = fetchedProducts[item.productId]
+        const days = p?.productType === 'preorder' ? (p.preorderDays || 0) : 0
+        return Math.max(max, days)
+    }, 0)
 
     // Calculate subtotal from cart
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
     // Use fresh weights from API if available, otherwise fallback to cart item weight or 500g
+    // Exclude digital products from weight entirely
     const totalWeight = cartItems.reduce((sum, item) => {
-        const weight = productWeights[item.productId] || item.weight || 500
+        const p = fetchedProducts[item.productId]
+        if (p?.productType === 'digital') return sum
+
+        const weight = p?.weight || item.weight || 500
         return sum + (weight * item.quantity)
     }, 0)
 
-    // Shipping cost from selected courier (own courier = free)
-    const shippingCost = shippingType === 'own_courier' ? 0 : (selectedCourier?.cost || 0)
+    // Shipping cost from selected courier (own courier = uses store setting, or free)
+    const shippingCost = shippingType === 'own_courier' ? ownCourierCost : (selectedCourier?.cost || 0)
     const uniqueCode = 123
     const total = subtotal - couponDiscount + shippingCost - shippingDiscount + uniqueCode
 
@@ -300,21 +347,32 @@ function CheckoutPage() {
         }
 
         // Validation differs by shipping type
-        if (shippingType === 'own_courier') {
-            // For own courier, GPS or address is enough, no courier selection needed
-            if (!gpsLocation && !address) {
-                setSubmitError('Harap bagikan lokasi GPS atau isi alamat lengkap untuk kurir sendiri')
-                return
-            }
-        } else {
-            if (!selectedCourier) {
-                setSubmitError('Harap pilih kurir pengiriman')
-                return
-            }
-            // Only require destination for RajaOngkir couriers (not fixed cost)
-            if (!selectedCourier.isFixed && !selectedDestination) {
-                setSubmitError('Harap pilih tujuan pengiriman untuk kurir RajaOngkir')
-                return
+        if (!isOnlyDigital) {
+            if (shippingType === 'own_courier') {
+                // For own courier, GPS or address is enough, no courier selection needed
+                if (!gpsLocation && !address) {
+                    setSubmitError('Harap bagikan lokasi GPS atau isi alamat lengkap untuk kurir sendiri')
+                    return
+                }
+                // Block if out of radius (and radius is enforced)
+                if (hasStoreGps && maxRadius) {
+                    const gpsOk = isWithinRadius === true
+                    const addressOk = geocodeWithinRadius === true
+                    if (!gpsOk && !addressOk) {
+                        setSubmitError(`Lokasi pengiriman di luar jangkauan kurir toko (maks ${maxRadius} km). Silakan bagikan lokasi GPS atau cari alamat yang masuk radius.`)
+                        return
+                    }
+                }
+            } else {
+                if (!selectedCourier) {
+                    setSubmitError('Harap pilih kurir pengiriman')
+                    return
+                }
+                // Only require destination for RajaOngkir couriers (not fixed cost)
+                if (!selectedCourier.isFixed && !selectedDestination) {
+                    setSubmitError('Harap pilih tujuan pengiriman untuk kurir RajaOngkir')
+                    return
+                }
             }
         }
         
@@ -324,6 +382,10 @@ function CheckoutPage() {
         }
 
         try {
+            // Use GPS coords, or fall back to geocoded address coords for courier navigation
+            const deliveryLat = gpsLocation?.lat ?? selectedGeocode?.lat ?? null
+            const deliveryLng = gpsLocation?.lng ?? selectedGeocode?.lng ?? null
+
             const orderData = {
                 recipientName,
                 recipientPhone: `62${phone}`,
@@ -331,19 +393,24 @@ function CheckoutPage() {
                 city: selectedDestination?.city_name || '',
                 district: selectedDestination?.subdistrict_name || '',
                 address,
-                shippingType,
-                latitude: gpsLocation?.lat?.toString() || '',
-                longitude: gpsLocation?.lng?.toString() || '',
-                shippingOptionId: selectedCourier?.id || null,
-                courierName: shippingType === 'own_courier'
-                    ? 'Kurir Toko'
-                    : `${selectedCourier?.name || 'Manual'} - ${selectedCourier?.service || ''}`,
-                shippingCost: shippingType === 'own_courier' ? 0 : (selectedCourier?.cost || 0),
+                shippingType: isOnlyDigital ? 'digital' : shippingType,
+                latitude: deliveryLat?.toString() || '',
+                longitude: deliveryLng?.toString() || '',
+                shippingOptionId: isOnlyDigital ? null : (selectedCourier?.id || null),
+                courierName: isOnlyDigital
+                    ? 'Produk Digital'
+                    : (shippingType === 'own_courier'
+                        ? 'Kurir Toko'
+                        : `${selectedCourier?.name || 'Manual'} - ${selectedCourier?.service || ''}`),
+                shippingCost: isOnlyDigital ? 0 : (shippingType === 'own_courier' ? ownCourierCost : (selectedCourier?.cost || 0)),
                 couponCode: appliedCoupon,
                 guestPhone: `62${phone}`,
                 paymentMethod,
+                deliverySlot: selectedDeliverySlot ? `${selectedDeliverySlot.label}, ${selectedDeliverySlot.time}` : '',
                 items: cartItems.map(item => ({
                     productId: item.productId,
+                    productName: item.name,
+                    price: item.price,
                     quantity: item.quantity,
                     variantInfo: item.variantInfo || '',
                 })),
@@ -420,8 +487,28 @@ function CheckoutPage() {
                                 </div>
                             </div>
 
-                            {/* Destination Search - Only show if RajaOngkir is enabled */}
-                            {isRajaOngkirEnabled && (
+                            {/* Product Types Notifications */}
+                            {hasPreorder && (
+                                <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl mb-4 text-sm text-orange-700 dark:text-orange-400">
+                                    <Icon name="info" size={16} className="inline mr-2 align-text-bottom" />
+                                    Pesanan Anda mengandung produk <strong>Pre-Order (PO)</strong> dengan estimasi {maxPreorderDays} hari kerja.
+                                </div>
+                            )}
+                            {hasDigital && !isOnlyDigital && (
+                                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl mb-4 text-sm text-blue-700 dark:text-blue-400">
+                                    <Icon name="email" size={16} className="inline mr-2 align-text-bottom" />
+                                    Pesanan Anda mengandung produk <strong>Digital</strong> yang akan dikirim via WhatsApp terpisah dari paket fisik.
+                                </div>
+                            )}
+                            {isOnlyDigital && (
+                                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl mb-4 text-sm text-blue-700 dark:text-blue-400">
+                                    <Icon name="email" size={16} className="inline mr-2 align-text-bottom" />
+                                    Pesanan Anda hanya berisi produk <strong>Digital</strong>. Anda tidak dikenakan biaya ongkos kirim.
+                                </div>
+                            )}
+
+                            {/* Destination Search - Only show if RajaOngkir is enabled AND not numeric */}
+                            {isRajaOngkirEnabled && !isOnlyDigital && (
                                 <div className="relative">
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tujuan Pengiriman</label>
                                     <p className="text-xs text-slate-400 mb-2">Ketik nama kota/kecamatan untuk mencari</p>
@@ -507,31 +594,43 @@ function CheckoutPage() {
                     </div>
 
                     {/* ─── Shipping Type Toggle ─── */}
+                    {!isOnlyDigital && (
+                        <>
                     <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
                         <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                             <Icon name="local_shipping" size={20} className="text-primary" />
                             Metode Pengiriman
                         </h3>
-                        <div className="grid grid-cols-2 gap-3 mb-4">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShippingType('own_courier')
-                                    setSelectedCourier(null)
-                                }}
-                                className={`p-4 rounded-xl border-2 transition-all text-left ${shippingType === 'own_courier'
-                                    ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                                    : 'border-slate-200 dark:border-slate-600 hover:border-primary/50'
-                                }`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <span className="text-2xl">🛵</span>
-                                    <div>
-                                        <p className="font-bold text-slate-900 dark:text-white">Kurir Toko</p>
-                                        <p className="text-xs text-slate-500">Diantar kurir toko ke lokasi Anda</p>
+                        {/* Only show Kurir Toko if store GPS is configured */}
+                        <div className={`grid ${hasStoreGps ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-4`}>
+                            {hasStoreGps && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShippingType('own_courier')
+                                        setSelectedCourier(null)
+                                    }}
+                                    className={`p-4 rounded-xl border-2 transition-all text-left ${shippingType === 'own_courier'
+                                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                                        : 'border-slate-200 dark:border-slate-600 hover:border-primary/50'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-2xl">🛵</span>
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <p className="font-bold text-slate-900 dark:text-white">Kurir Toko</p>
+                                                {ownCourierCost > 0 && (
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded">
+                                                        Rp {ownCourierCost.toLocaleString('id-ID')}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-slate-500">Diantar kurir toko ke lokasi Anda</p>
+                                        </div>
                                     </div>
-                                </div>
-                            </button>
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 onClick={() => {
@@ -558,7 +657,9 @@ function CheckoutPage() {
                         {shippingType === 'own_courier' && (
                             <div className="space-y-4 border-t border-slate-200 dark:border-slate-700 pt-4">
                                 <p className="text-sm text-slate-500">
-                                    Bagikan lokasi GPS Anda agar kurir toko bisa menemukan alamat dengan mudah. Ongkir akan ditentukan oleh toko.
+                                    {hasStoreGps && maxRadius
+                                        ? `Bagikan lokasi GPS atau cari alamat tujuan untuk memastikan lokasi Anda dalam radius ${maxRadius} km dari toko.`
+                                        : 'Bagikan lokasi GPS Anda agar kurir toko bisa menemukan alamat dengan mudah.'}
                                 </p>
 
                                 {/* Share Location Button */}
@@ -573,11 +674,26 @@ function CheckoutPage() {
                                         setGpsError('')
                                         navigator.geolocation.getCurrentPosition(
                                             (position) => {
-                                                setGpsLocation({
+                                                const loc = {
                                                     lat: position.coords.latitude,
                                                     lng: position.coords.longitude,
-                                                })
+                                                }
+                                                setGpsLocation(loc)
                                                 setGpsLoading(false)
+
+                                                // Check distance if store has GPS
+                                                if (hasStoreGps) {
+                                                    const dist = getDistanceKm(
+                                                        loc.lat, loc.lng,
+                                                        parseFloat(storeLat), parseFloat(storeLng)
+                                                    )
+                                                    setDistanceToStore(dist)
+                                                    if (maxRadius) {
+                                                        setIsWithinRadius(dist <= maxRadius)
+                                                    } else {
+                                                        setIsWithinRadius(true)
+                                                    }
+                                                }
                                             },
                                             (err) => {
                                                 console.error('GPS error:', err)
@@ -603,16 +719,30 @@ function CheckoutPage() {
                                     </div>
                                 )}
 
-                                {/* GPS Result */}
+                                {/* GPS Result + Distance */}
                                 {gpsLocation && (
-                                    <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl">
+                                    <div className={`p-4 rounded-xl border ${
+                                        isWithinRadius === false
+                                            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+                                            : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
+                                    }`}>
                                         <div className="flex items-start gap-3">
-                                            <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <Icon name="location_on" size={22} className="text-green-600 dark:text-green-400" />
+                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                                isWithinRadius === false ? 'bg-red-500/20' : 'bg-green-500/20'
+                                            }`}>
+                                                <Icon name="location_on" size={22} className={isWithinRadius === false ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'} />
                                             </div>
                                             <div className="flex-1">
-                                                <p className="text-sm font-semibold text-green-700 dark:text-green-400">Lokasi berhasil didapatkan ✅</p>
-                                                <p className="text-xs text-green-600 dark:text-green-500 font-mono mt-0.5">
+                                                <p className={`text-sm font-semibold ${
+                                                    isWithinRadius === false
+                                                        ? 'text-red-700 dark:text-red-400'
+                                                        : 'text-green-700 dark:text-green-400'
+                                                }`}>
+                                                    {isWithinRadius === false
+                                                        ? `⚠️ Lokasi GPS Anda di luar jangkauan (${distanceToStore?.toFixed(1)} km)`
+                                                        : `Lokasi berhasil didapatkan ✅${distanceToStore ? ` — Jarak: ${distanceToStore.toFixed(1)} km` : ''}`}
+                                                </p>
+                                                <p className="text-xs text-slate-500 font-mono mt-0.5">
                                                     {gpsLocation.lat.toFixed(6)}, {gpsLocation.lng.toFixed(6)}
                                                 </p>
                                                 <a
@@ -627,6 +757,244 @@ function CheckoutPage() {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* ─── Address Geocode Fallback ─── */}
+                                {/* Show if: no GPS yet, OR GPS is outside radius */}
+                                {(hasStoreGps && maxRadius && (isWithinRadius === false || !gpsLocation)) && (
+                                    <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                            📍 Cari alamat tujuan pengiriman:
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                            Masukkan alamat lengkap tujuan pengiriman. Bisa digunakan jika Anda memesan untuk dikirim ke alamat lain yang masuk radius toko (contoh: rumah keluarga, kantor, dll).
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={deliveryAddressSearch}
+                                                onChange={(e) => {
+                                                    setDeliveryAddressSearch(e.target.value)
+                                                    setSelectedGeocode(null)
+                                                    setGeocodeDistance(null)
+                                                    setGeocodeWithinRadius(null)
+                                                    setHasGeocodeSearched(false)
+                                                }}
+                                                placeholder="Contoh: Jl. Merdeka No. 10, Bandung"
+                                                className={inputClass}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    if (!deliveryAddressSearch || deliveryAddressSearch.length < 5) return
+                                                    setGeocodeLoading(true)
+                                                    setGeocodeResults([])
+                                                    setHasGeocodeSearched(false)
+                                                    try {
+                                                        const results = await geocodeAddress(deliveryAddressSearch)
+                                                        setGeocodeResults(results)
+                                                    } catch (err) {
+                                                        console.error('Geocode error:', err)
+                                                    } finally {
+                                                        setGeocodeLoading(false)
+                                                        setHasGeocodeSearched(true)
+                                                    }
+                                                }}
+                                                disabled={geocodeLoading || deliveryAddressSearch.length < 5}
+                                                className="px-4 py-2 bg-primary text-white font-medium rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-50 whitespace-nowrap text-sm"
+                                            >
+                                                {geocodeLoading ? '⏳' : 'Cari'}
+                                            </button>
+                                        </div>
+
+                                        {/* Geocode Results */}
+                                        {hasGeocodeSearched && geocodeResults.length === 0 && !selectedGeocode && !geocodeLoading && (
+                                            <div className="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg">
+                                                <p className="text-sm text-red-600 dark:text-red-400">
+                                                    Alamat tidak ditemukan di peta. Coba gunakan kata kunci yang lebih luas (contoh: nama jalan besar, kelurahan, atau kecamatan).
+                                                </p>
+                                            </div>
+                                        )}
+                                        {geocodeResults.length > 0 && !selectedGeocode && (
+                                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                                                {geocodeResults.map((result, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSelectedGeocode(result)
+                                                            setGeocodeResults([])
+                                                            // Calculate distance
+                                                            const dist = getDistanceKm(
+                                                                result.lat, result.lng,
+                                                                parseFloat(storeLat), parseFloat(storeLng)
+                                                            )
+                                                            setGeocodeDistance(dist)
+                                                            setGeocodeWithinRadius(maxRadius ? dist <= maxRadius : true)
+                                                        }}
+                                                        className="w-full p-3 text-left rounded-lg border border-slate-200 dark:border-slate-600 hover:border-primary/50 hover:bg-primary/5 transition-all"
+                                                    >
+                                                        <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-2">{result.displayName}</p>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Selected Geocode Result */}
+                                        {selectedGeocode && (
+                                            <div className={`p-3 rounded-lg border ${
+                                                geocodeWithinRadius
+                                                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
+                                                    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+                                            }`}>
+                                                <p className={`text-sm font-semibold ${
+                                                    geocodeWithinRadius
+                                                        ? 'text-green-700 dark:text-green-400'
+                                                        : 'text-red-700 dark:text-red-400'
+                                                }`}>
+                                                    {geocodeWithinRadius
+                                                        ? `✅ Dalam jangkauan! Jarak: ${geocodeDistance?.toFixed(1)} km`
+                                                        : `❌ Di luar jangkauan. Jarak: ${geocodeDistance?.toFixed(1)} km (maks ${maxRadius} km)`}
+                                                </p>
+                                                <p className="text-xs text-slate-500 mt-1 line-clamp-2">{selectedGeocode.displayName}</p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedGeocode(null)
+                                                        setGeocodeDistance(null)
+                                                        setGeocodeWithinRadius(null)
+                                                        setDeliveryAddressSearch('')
+                                                    }}
+                                                    className="text-xs text-slate-500 hover:text-slate-700 mt-1 underline"
+                                                >
+                                                    Ubah alamat
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Info: cannot use Kurir Toko if out of radius */}
+                                {hasStoreGps && maxRadius && isWithinRadius === false && geocodeWithinRadius !== true && (
+                                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                                        <p className="text-red-600 dark:text-red-400 text-sm flex items-start gap-2">
+                                            <Icon name="error" size={16} className="mt-0.5 flex-shrink-0" />
+                                            <span>Lokasi pengiriman di luar jangkauan kurir toko ({maxRadius} km). Silakan gunakan Jasa Paket atau cari alamat yang masuk radius di atas.</span>
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Delivery Schedule Picker */}
+                                {(() => {
+                                    // Pilihan jadwal aktif jika gps approve
+                                    const isGpsOk = (!hasStoreGps || !maxRadius) || (isWithinRadius === true || geocodeWithinRadius === true)
+                                    if (!isGpsOk) return null
+
+                                    let schedule = {}
+                                    try { schedule = deliveryScheduleRaw ? JSON.parse(deliveryScheduleRaw) : {} } catch { schedule = {} }
+                                    const dayKeyOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+                                    const dayNamesID = { mon: 'Senin', tue: 'Selasa', wed: 'Rabu', thu: 'Kamis', fri: 'Jumat', sat: 'Sabtu', sun: 'Minggu' }
+                                    const hasHours = deliveryHoursAfterPayment && parseInt(deliveryHoursAfterPayment) > 0
+
+                                    // Build available slots for the next 7 days, starting from pre-order requirement
+                                    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
+                                    const nowTimeMs = now.getTime()
+                                    // jam hide jika pemesanan dibawah 30 menit dari pengiriman
+                                    const minimumSlotTimeMs = nowTimeMs + (30 * 60 * 1000)
+
+                                    const availableSlots = []
+                                    const limit = 7 // limit options to 7 valid days
+                                    for (let offset = 0; offset < limit; offset++) {
+                                        const actualOffsetDays = maxPreorderDays + offset
+                                        
+                                        const slotDate = new Date(now)
+                                        slotDate.setDate(now.getDate() + actualOffsetDays)
+                                        
+                                        const dayIdx = (slotDate.getDay() + 6) % 7 // 0=Mon, 6=Sun
+                                        const dayKey = dayKeyOrder[dayIdx]
+                                        
+                                        const slots = schedule[dayKey]
+                                        if (!Array.isArray(slots) || slots.length === 0) continue
+
+                                        const dateStr = slotDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' })
+
+                                        let dayLabel
+                                        if (actualOffsetDays === 0) dayLabel = 'Hari Ini'
+                                        else if (actualOffsetDays === 1) dayLabel = 'Besok'
+                                        else dayLabel = dayNamesID[dayKey]
+
+                                        const fullLabel = `${dayLabel}, ${dateStr}`
+
+                                        const filteredSlots = slots.sort().filter(time => {
+                                            const [hh, mm] = time.split(':')
+                                            const slotExactTime = new Date(slotDate)
+                                            slotExactTime.setHours(parseInt(hh, 10), parseInt(mm, 10), 0, 0)
+                                            return slotExactTime.getTime() >= minimumSlotTimeMs
+                                        })
+
+                                        if (filteredSlots.length > 0) {
+                                            availableSlots.push({ dayKey, label: fullLabel, date: dateStr, times: filteredSlots })
+                                        }
+                                    }
+
+                                    const hasSchedule = availableSlots.length > 0
+                                    if (!hasSchedule && !hasHours) return null
+
+                                    return (
+                                        <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-xl space-y-3">
+                                            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                                                <Icon name="schedule" size={16} />
+                                                Pilih Jadwal Pengiriman
+                                            </p>
+
+                                            {hasHours && (
+                                                <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-800/30 rounded-lg p-2">
+                                                    <Icon name="timer" size={14} className="flex-shrink-0" />
+                                                    <span>Estimasi pengiriman <strong>{deliveryHoursAfterPayment} jam</strong> setelah pelunasan</span>
+                                                </div>
+                                            )}
+
+                                            {hasSchedule ? (
+                                                <div className="space-y-2">
+                                                    {availableSlots.map(day => (
+                                                        <div key={day.dayKey + day.date}>
+                                                            <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300 mb-1.5">{day.label}</p>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {day.times.map(time => {
+                                                                    const slotId = `${day.date}__${time}`
+                                                                    const isSelected = selectedDeliverySlot?.date === day.date && selectedDeliverySlot?.time === time
+                                                                    return (
+                                                                        <button
+                                                                            key={slotId}
+                                                                            type="button"
+                                                                            onClick={() => setSelectedDeliverySlot(isSelected ? null : { date: day.date, time, label: day.label })}
+                                                                            className={`px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                                                                                isSelected
+                                                                                    ? 'border-primary bg-primary text-white shadow-md scale-105'
+                                                                                    : 'border-emerald-200 dark:border-emerald-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-primary hover:text-primary'
+                                                                            }`}
+                                                                        >
+                                                                            <Icon name="schedule" size={14} className="inline mr-1" />
+                                                                            {time}
+                                                                        </button>
+                                                                    )
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-slate-500">Tidak ada jadwal pengiriman tersedia saat ini.</p>
+                                            )}
+
+                                            {selectedDeliverySlot && (
+                                                <div className="flex items-center gap-2 text-sm text-primary font-medium bg-primary/10 rounded-lg p-2">
+                                                    <Icon name="check_circle" size={16} />
+                                                    <span>Dipilih: {selectedDeliverySlot.label}, pukul {selectedDeliverySlot.time} WIB</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })()}
 
                                 <div className="p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/50 rounded-xl">
                                     <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
@@ -719,6 +1087,8 @@ function CheckoutPage() {
                             </div>
                         </div>
                     )}
+                    </>
+                    )}
 
                     {/* Shipping Error */}
                     {shippingError && (
@@ -729,8 +1099,8 @@ function CheckoutPage() {
                             </p>
                         </div>
                     )}
-                        </>
-                    )}
+                 </>
+            )}
 
                     <CouponSection
                         couponCode={couponCode}
@@ -849,14 +1219,15 @@ function CheckoutPage() {
                             totalWeight={`${(totalWeight / 1000).toFixed(1)} kg`}
                             productDiscount={null}
                             couponDiscount={couponDiscount > 0 ? `Rp ${couponDiscount.toLocaleString('id-ID')}` : null}
-                            shippingCost={shippingCost === 0 ? 'Pilih kurir' : `Rp ${shippingCost.toLocaleString('id-ID')}`}
+                            shippingCost={isOnlyDigital ? 'Gratis (Digital)' : (shippingType === 'expedition' && !selectedCourier ? 'Pilih kurir' : (shippingCost === 0 ? 'Gratis' : `Rp ${shippingCost.toLocaleString('id-ID')}`))}
                             shippingDiscount={shippingDiscount > 0 ? `Rp ${shippingDiscount.toLocaleString('id-ID')}` : null}
-                            shippingName={selectedCourier ? `${selectedCourier.name} - ${selectedCourier.service}` : 'Pilih Kurir'}
+                            shippingName={isOnlyDigital ? 'Produk Digital' : (shippingType === 'own_courier' ? 'Kurir Toko' : (selectedCourier ? `${selectedCourier.name} - ${selectedCourier.service}` : 'Pilih Kurir'))}
                             uniqueCode={`Rp ${uniqueCode}`}
                             total={`Rp ${total.toLocaleString('id-ID')}`}
                             totalSavings={(couponDiscount + shippingDiscount) > 0 ? `Rp ${(couponDiscount + shippingDiscount).toLocaleString('id-ID')}` : null}
                             onCheckout={handleCheckout}
                             isLoading={createOrder.isPending}
+                            paymentMethod={paymentMethod}
                         />
 
                         <TrustBadges />

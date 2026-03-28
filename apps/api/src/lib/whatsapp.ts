@@ -4,7 +4,7 @@ import { orderItems } from '../db/schema';
 export type OrderItem = typeof orderItems.$inferSelect;
 
 // Format order data into WhatsApp message
-export function formatOrderMessage(order: Order, items: OrderItem[], storeName?: string, paymentMethod: string = 'manual'): string {
+export function formatOrderMessage(order: Order, items: OrderItem[], storeName?: string, paymentMethod: string = 'manual', newAccountInfo?: { phone: string, password: string }): string {
     const store = storeName || 'TokoIndo';
     const itemsList = items
         .map((item, index) => {
@@ -17,16 +17,19 @@ export function formatOrderMessage(order: Order, items: OrderItem[], storeName?:
         ? `\nMETODE: BAYAR DI TEMPAT (COD)`
         : '';
 
+    const poInfo = (order as any).maxPreorderDays ? `\n⏳ *Pre-Order*: +${(order as any).maxPreorderDays} Hari dari Jadwal Normal` : '';
+    const digitalInfo = (order as any).hasDigitalItems ? `\n📧 *Info*: Produk digital akan dikirimkan via WhatsApp terpisah setelah order dibayar/disetujui.` : '';
+
     let instructions = `
 📝 *Instruksi Pembayaran Manual:*
 Mohon selesaikan pembayaran sesuai *TOTAL BAYAR* ke rekening Admin.
-Setelah transfer, wajib balas pesan ini dengan melampirkan *BUKTI TRANSFER (Foto Nota)* agar pesanan segera diproses.`;
+Setelah transfer, wajib balas pesan ini dengan melampirkan *BUKTI TRANSFER (Foto Nota)* agar pesanan segera diproses.${poInfo}${digitalInfo}`;
 
     if (paymentMethod === 'cod') {
         instructions = `
 📝 *Instruksi Bayar di Tempat (COD):*
 Pesanan Anda akan segera kami proses dan kirimkan menggunakan kurir toko.
-Mohon siapkan uang tunai sesuai *TOTAL BAYAR* saat pesanan tiba di alamat Anda.`;
+Mohon siapkan uang tunai sesuai *TOTAL BAYAR* saat pesanan tiba di alamat Anda.${poInfo}${digitalInfo}`;
     }
 
     const message = `
@@ -50,7 +53,7 @@ Provinsi: ${order.province}
 
 🚚 *Pengiriman:*
 Kurir: ${order.courierName}
-Ongkir: Rp ${order.shippingCost.toLocaleString('id-ID')}
+${order.deliverySlot ? `Jadwal Kirim: ${order.deliverySlot}\n` : ''}Ongkir: Rp ${order.shippingCost.toLocaleString('id-ID')}
 
 💰 *Rincian Pembayaran:*
 Subtotal: Rp ${order.subtotal.toLocaleString('id-ID')}
@@ -66,7 +69,14 @@ ${order.uniqueCode ? `Kode Unik: +Rp ${order.uniqueCode}` : ''}
 ${instructions}
 
 💡 *Simpan No. Order ini untuk konfirmasi pesanan*
-`.trim();
+${newAccountInfo ? `
+━━━━━━━━━━━━━━━━━━━━
+🔐 *INFO AKUN ANDA*
+Kami telah membuatkan akun untuk Anda agar dapat melacak pesanan dan menyimpan produk favorit (wishlist).
+Login di menu web menggunakan:
+Nomor WA: ${newAccountInfo.phone}
+Password: ${newAccountInfo.password}
+━━━━━━━━━━━━━━━━━━━━` : ''}`.trim();
 
     return message;
 }
@@ -98,7 +108,7 @@ ${itemsList}
 💰 Ongkir: Rp ${order.shippingCost.toLocaleString('id-ID')}
 
 🔗 Buka dashboard kurir:
-https://wa-market.pages.dev/s/${storeSlug}/kurir
+https://unikasik.com/s/${storeSlug}/kurir
 
 _Balas pesan ini jika ada kendala_
 `.trim();
@@ -112,6 +122,24 @@ export function formatDeliveryCompleteNotification(order: Order, courier: User):
 No. Order: ${order.orderNumber}
 Kurir: ${courier.name}
 Selesai: ${new Date().toLocaleString('id-ID')}
+`.trim();
+}
+
+export function formatDigitalDeliveryMessage(order: Order, digitalContents: {name: string, content: string}[], storeName: string): string {
+    const contentsText = digitalContents
+        .map((item, index) => `*${index + 1}. ${item.name}*\n${item.content}`)
+        .join('\n\n');
+
+    return `
+🎉 *TERIMA KASIH ORDERANNYA!*
+Berikut adalah pengiriman pesanan digital Anda dari ${storeName}:
+
+🧾 *No. Order: ${order.orderNumber}*
+
+📦 *Konten Digital:*
+${contentsText}
+
+_Jika file berupa link, mohon segera didownload. Harap simpan dengan baik konten ini karena kami tidak membagikannya ulang._
 `.trim();
 }
 

@@ -26,6 +26,10 @@ router.get('/', async (c) => {
             'banner1_image', 'banner1_badge', 'banner1_title', 'banner1_desc',
             'banner2_image', 'banner2_label', 'banner2_promo',
             'banner3_image', 'banner3_label', 'banner3_promo',
+            // Store GPS & Delivery Radius & Cost
+            'store_lat', 'store_lng', 'store_delivery_radius', 'store_delivery_cost',
+            // Delivery Schedule
+            'delivery_schedule', 'delivery_hours_after_payment'
         ];
         
         const settingsObject: Record<string, string> = {};

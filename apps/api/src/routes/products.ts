@@ -51,6 +51,9 @@ router.get('/', async (c) => {
             imageAlt: products.imageAlt,
             stock: products.stock,
             weight: products.weight,
+            productType: products.productType,
+            preorderDays: products.preorderDays,
+            digitalContent: products.digitalContent,
             isActive: products.isActive,
             createdAt: products.createdAt,
         }).from(products)

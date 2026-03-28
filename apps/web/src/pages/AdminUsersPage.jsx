@@ -3,6 +3,7 @@ import AdminHeader from '../components/organisms/AdminHeader'
 import { Icon, Modal } from '../components/atoms'
 import api from '../api/client'
 import { useToast } from '../context'
+import { formatDateWIB } from '../utils/dateWIB'
 
 /**
  * AdminUsersPage - User management for admins
@@ -216,7 +217,7 @@ function AdminUsersPage() {
                                             </select>
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-500">
-                                            {user.createdAt ? new Date(user.createdAt).toLocaleDateString('id-ID') : '-'}
+                                            {user.createdAt ? formatDateWIB(user.createdAt) : '-'}
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">

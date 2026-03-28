@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Icon, Badge } from '../atoms'
 import { ProductPrice } from '../molecules'
-import { useCart } from '../../context'
+import { useCart, useAuth, useWishlist } from '../../context'
 import { useSetting } from '../../hooks/useSettings'
 
 const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : ''
@@ -12,6 +12,8 @@ const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.rep
 function ProductCard({ product }) {
     const navigate = useNavigate()
     const { addToCart } = useCart()
+    const { isAuthenticated } = useAuth()
+    const { isWishlisted, toggleWishlist } = useWishlist()
     const { data: whatsappKasir } = useSetting('whatsapp_kasir')
 
     const {
@@ -22,6 +24,8 @@ function ProductCard({ product }) {
         originalPrice,
         image,
         imageAlt,
+        productType,
+        preorderDays,
     } = product
 
     // Calculate discount percentage from originalPrice and price
@@ -51,6 +55,18 @@ function ProductCard({ product }) {
         navigate('/checkout')
     }
 
+    const handleWishlistClick = async (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (!isAuthenticated) {
+            navigate('/login')
+            return
+        }
+        await toggleWishlist(id)
+    }
+
+    const wishlisted = isWishlisted(id)
+
     return (
         <Link
             to={`/product/${id}`}
@@ -73,6 +89,25 @@ function ProductCard({ product }) {
                         -{discountPercent}%
                     </Badge>
                 )}
+                {productType === 'preorder' && (
+                    <span className="absolute left-2 top-2 z-10 px-2 py-1 text-[10px] font-bold tracking-wider text-orange-700 bg-orange-100 rounded-lg shadow-sm backdrop-blur-sm border border-orange-200">
+                        PO {preorderDays} HARI
+                    </span>
+                )}
+                {productType === 'digital' && (
+                    <span className="absolute left-2 top-2 z-10 px-2 py-1 text-[10px] font-bold tracking-wider text-blue-700 bg-blue-100 rounded-lg shadow-sm backdrop-blur-sm border border-blue-200">
+                        DIGITAL
+                    </span>
+                )}
+                
+                {/* Wishlist Button */}
+                <button
+                    onClick={handleWishlistClick}
+                    className="absolute right-2 bottom-2 z-10 p-1.5 rounded-full bg-white/80 dark:bg-black/50 backdrop-blur-sm text-gray-400 hover:text-red-500 hover:bg-white dark:hover:bg-black transition-all shadow-sm"
+                    aria-label="Wishlist"
+                >
+                    <Icon name={wishlisted ? "favorite" : "favorite_border"} size={20} className={wishlisted ? "text-red-500" : ""} />
+                </button>
             </div>
 
             {/* Product Info */}

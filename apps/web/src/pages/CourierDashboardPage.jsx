@@ -183,6 +183,18 @@ function CourierDashboardPage() {
                                         </div>
                                     </div>
 
+                                    {order.deliverySlot && (
+                                        <div className="flex items-start gap-3 pt-2">
+                                            <div className="mt-0.5 text-slate-400">
+                                                <Icon name="schedule" size={20} />
+                                            </div>
+                                            <div className="flex-1 text-sm">
+                                                <p className="font-medium text-emerald-700 dark:text-emerald-400">Jadwal Kirim</p>
+                                                <p className="text-slate-700 dark:text-slate-300">{order.deliverySlot}</p>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="flex items-start gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
                                         <div className="mt-0.5 text-slate-400">
                                             <Icon name="payments" size={20} />

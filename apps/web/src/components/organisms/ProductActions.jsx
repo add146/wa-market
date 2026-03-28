@@ -8,7 +8,9 @@ function ProductActions({
     quantity = 1,
     onQuantityChange,
     onAddToCart,
-    onChatWhatsApp
+    onChatWhatsApp,
+    isWishlisted = false,
+    onWishlistToggle
 }) {
     return (
         <>
@@ -35,14 +37,24 @@ function ProductActions({
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-bold text-white shadow-sm hover:bg-primary-dark transition-all hover:shadow-lg hover:shadow-primary/20"
                 >
                     <Icon name="shopping_cart" size={20} />
-                    Tambah Keranjang
+                    Tambah
+                </button>
+                <button
+                    onClick={onWishlistToggle}
+                    className={`flex items-center justify-center gap-2 rounded-xl border-2 px-6 py-3.5 text-base font-bold transition-all sm:flex-none ${
+                        isWishlisted 
+                            ? 'border-red-500 bg-red-50 text-red-500 dark:bg-red-500/10' 
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-red-200 hover:text-red-500 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-red-900/50'
+                    }`}
+                >
+                    <Icon name={isWishlisted ? "favorite" : "favorite_border"} size={20} />
                 </button>
                 <button
                     onClick={onChatWhatsApp}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-primary bg-transparent px-8 py-3.5 text-base font-bold text-primary hover:bg-primary/5 transition-colors"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-primary bg-transparent px-6 py-3.5 text-base font-bold text-primary hover:bg-primary/5 transition-colors"
                 >
                     <Icon name="chat" size={20} />
-                    Chat WhatsApp
+                    Chat
                 </button>
             </div>
 

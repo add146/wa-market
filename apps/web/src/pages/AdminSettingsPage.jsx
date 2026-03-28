@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import AdminHeader from '../components/organisms/AdminHeader'
 import { Icon } from '../components/atoms'
+import StoreLocationMap from '../components/organisms/StoreLocationMap'
 import { settingsApi, rajaongkirApi, uploadApi } from '../api/client'
 import { useTheme, useToast } from '../context'
 
@@ -23,9 +24,14 @@ function AdminSettingsPage() {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const response = await settingsApi.getAll()
+                const response = await settingsApi.getAdminAll()
                 const data = response.data
-                if (data && typeof data === 'object' && !Array.isArray(data)) {
+                if (Array.isArray(data)) {
+                    // Backend directly returned array of {key, value}
+                    const settingsObj = {}
+                    data.forEach(s => { settingsObj[s.key] = s.value })
+                    setSettings(settingsObj)
+                } else if (data && typeof data === 'object') {
                     if (!data.data) {
                         setSettings(data)
                     } else if (Array.isArray(data.data)) {
@@ -131,6 +137,245 @@ function AdminSettingsPage() {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Store Location & Delivery Radius */}
+                        <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+                            <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                                <Icon name="location_on" size={20} />
+                                Lokasi & Radius Pengiriman Toko
+                            </h3>
+                            <p className="text-sm text-slate-500 mb-4">
+                                Tentukan posisi GPS toko Anda dan radius jangkauan kurir toko (km). Customer hanya bisa memilih "Kurir Toko" jika lokasi pengiriman berada dalam radius ini.
+                            </p>
+                            <div className="space-y-4">
+                                {/* Map */}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Posisi Toko di Peta</label>
+                                    <StoreLocationMap
+                                        lat={settings.store_lat ? parseFloat(settings.store_lat) : null}
+                                        lng={settings.store_lng ? parseFloat(settings.store_lng) : null}
+                                        radius={settings.store_delivery_radius ? parseFloat(settings.store_delivery_radius) : 5}
+                                        onLocationChange={(lat, lng) => {
+                                            handleChange('store_lat', String(lat))
+                                            handleChange('store_lng', String(lng))
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Use My Location Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!navigator.geolocation) {
+                                            toast.error('Browser tidak mendukung GPS')
+                                            return
+                                        }
+                                        navigator.geolocation.getCurrentPosition(
+                                            (pos) => {
+                                                handleChange('store_lat', String(pos.coords.latitude))
+                                                handleChange('store_lng', String(pos.coords.longitude))
+                                                toast.success('Lokasi GPS berhasil didapatkan!')
+                                            },
+                                            () => toast.error('Gagal mendapatkan GPS. Pastikan GPS aktif.'),
+                                            { enableHighAccuracy: true }
+                                        )
+                                    }}
+                                    className="w-full py-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors flex items-center justify-center gap-2 text-sm"
+                                >
+                                    <Icon name="my_location" size={18} />
+                                    Gunakan Lokasi Saya Saat Ini
+                                </button>
+
+                                {/* Show saved location */}
+                                {settings.store_lat && settings.store_lng && (
+                                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                        <p className="text-sm text-green-700 dark:text-green-400">
+                                            ✓ Posisi Toko: {parseFloat(settings.store_lat).toFixed(6)}, {parseFloat(settings.store_lng).toFixed(6)}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Delivery Radius */}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Radius Pengiriman (km)</label>
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="100"
+                                            step="0.5"
+                                            value={settings.store_delivery_radius || ''}
+                                            onChange={(e) => handleChange('store_delivery_radius', e.target.value)}
+                                            placeholder="5"
+                                            className={`${inputClass} max-w-[120px]`}
+                                        />
+                                        <span className="text-sm text-slate-500">km</span>
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-1">Jangkauan maksimal kurir toko dari posisi GPS toko. Jika kosong, Kurir Toko aktif tanpa batasan.</p>
+                                </div>
+
+                                {/* Delivery Cost */}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Biaya Kurir Toko (Rp)</label>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-sm text-slate-500 font-medium">Rp</span>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="500"
+                                            value={settings.store_delivery_cost || ''}
+                                            onChange={(e) => handleChange('store_delivery_cost', e.target.value)}
+                                            placeholder="Misal: 10000"
+                                            className={`${inputClass} max-w-[150px]`}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-1">Biaya pengiriman menggunakan kurir toko. Jika dikosongkan atau diset 0, maka biaya kurir Gratis.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Delivery Schedule */}
+                        <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+                            <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                                <Icon name="schedule" size={20} />
+                                Jadwal Pengiriman Kurir Toko
+                            </h3>
+                            <p className="text-sm text-slate-500 mb-4">
+                                Tentukan hari dan jam pengiriman yang tersedia. Customer akan melihat jadwal ini saat memilih Kurir Toko.
+                            </p>
+
+                            {/* Hours after payment */}
+                            <div className="mb-5 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                    Estimasi Pengiriman Setelah Pelunasan
+                                </label>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="72"
+                                        step="1"
+                                        value={settings.delivery_hours_after_payment || ''}
+                                        onChange={(e) => handleChange('delivery_hours_after_payment', e.target.value)}
+                                        placeholder="3"
+                                        className={`${inputClass} max-w-[100px]`}
+                                    />
+                                    <span className="text-sm text-slate-500">jam setelah pelunasan</span>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-1">Contoh: isi 3 artinya pesanan dikirim estimasi 3 jam setelah pembayaran lunas. Kosongkan jika tidak ada estimasi.</p>
+                            </div>
+
+                            {/* Day Schedule */}
+                            <div className="space-y-3">
+                                {(() => {
+                                    const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+                                    const dayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+
+                                    // Parse schedule from settings
+                                    let schedule = {}
+                                    try {
+                                        schedule = settings.delivery_schedule ? JSON.parse(settings.delivery_schedule) : {}
+                                    } catch { schedule = {} }
+
+                                    const updateSchedule = (newSchedule) => {
+                                        handleChange('delivery_schedule', JSON.stringify(newSchedule))
+                                    }
+
+                                    const toggleDay = (dayKey) => {
+                                        const newSched = { ...schedule }
+                                        if (newSched[dayKey]) {
+                                            delete newSched[dayKey]
+                                        } else {
+                                            newSched[dayKey] = ['09:00']
+                                        }
+                                        updateSchedule(newSched)
+                                    }
+
+                                    const addTimeSlot = (dayKey) => {
+                                        const newSched = { ...schedule }
+                                        const slots = [...(newSched[dayKey] || [])]
+                                        slots.push('12:00')
+                                        newSched[dayKey] = slots
+                                        updateSchedule(newSched)
+                                    }
+
+                                    const removeTimeSlot = (dayKey, idx) => {
+                                        const newSched = { ...schedule }
+                                        const slots = [...(newSched[dayKey] || [])]
+                                        slots.splice(idx, 1)
+                                        if (slots.length === 0) {
+                                            delete newSched[dayKey]
+                                        } else {
+                                            newSched[dayKey] = slots
+                                        }
+                                        updateSchedule(newSched)
+                                    }
+
+                                    const updateTimeSlot = (dayKey, idx, value) => {
+                                        const newSched = { ...schedule }
+                                        const slots = [...(newSched[dayKey] || [])]
+                                        slots[idx] = value
+                                        newSched[dayKey] = slots
+                                        updateSchedule(newSched)
+                                    }
+
+                                    return days.map((dayName, i) => {
+                                        const dayKey = dayKeys[i]
+                                        const isActive = !!schedule[dayKey]
+                                        const slots = schedule[dayKey] || []
+                                        return (
+                                            <div key={dayKey} className={`rounded-xl border transition-all ${isActive ? 'border-primary/30 bg-primary/5 dark:bg-primary/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'} p-4`}>
+                                                <div className="flex items-center justify-between">
+                                                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isActive}
+                                                            onChange={() => toggleDay(dayKey)}
+                                                            className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary"
+                                                        />
+                                                        <span className={`font-semibold text-sm ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500'}`}>{dayName}</span>
+                                                    </label>
+                                                    {isActive && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => addTimeSlot(dayKey)}
+                                                            className="text-xs font-medium text-primary hover:text-primary-dark flex items-center gap-1"
+                                                        >
+                                                            <Icon name="add" size={14} /> Tambah Jam
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {isActive && slots.length > 0 && (
+                                                    <div className="mt-3 flex flex-wrap gap-2">
+                                                        {slots.map((time, idx) => (
+                                                            <div key={idx} className="flex items-center gap-1 bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 px-2 py-1">
+                                                                <input
+                                                                    type="time"
+                                                                    value={time}
+                                                                    onChange={(e) => updateTimeSlot(dayKey, idx, e.target.value)}
+                                                                    className="text-sm bg-transparent text-slate-900 dark:text-white border-none outline-none p-0 w-[80px]"
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeTimeSlot(dayKey, idx)}
+                                                                    className="text-red-400 hover:text-red-600 p-0.5"
+                                                                    title="Hapus jam ini"
+                                                                >
+                                                                    <Icon name="close" size={14} />
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })
+                                })()}
+                            </div>
+                            <p className="text-xs text-slate-400 mt-3">
+                                💡 Hari yang tidak dicentang artinya tidak ada pengiriman kurir toko di hari tersebut. Jika semua kosong, jadwal tidak ditampilkan ke customer.
+                            </p>
                         </div>
 
                         {/* WhatsApp */}

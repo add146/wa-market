@@ -105,6 +105,7 @@ export const ordersApi = {
     updateStatus: (id, status) => api.patch(`/orders/${id}/status`, { status }),
     delete: (id) => api.delete(`/orders/${id}`),
     assignCourier: (id, data) => api.post(`/orders/${id}/assign-courier`, data),
+    deliverDigital: (id) => api.patch(`/orders/${id}/deliver-digital`),
 };
 
 export const couriersApi = {
@@ -112,6 +113,7 @@ export const couriersApi = {
     getAll: () => api.get('/couriers/admin'),
     create: (data) => api.post('/couriers/admin', data),
     delete: (id) => api.delete(`/couriers/admin/${id}`),
+    getDeliveriesByCourier: (courierId) => api.get(`/couriers/admin/${courierId}/deliveries`),
     // Courier Dashboard
     getDeliveries: (params) => api.get('/couriers/deliveries', { params }),
     getDeliveryById: (id) => api.get(`/couriers/deliveries/${id}`),
@@ -127,7 +129,8 @@ export const cartApi = {
 };
 
 export const settingsApi = {
-    getAll: () => api.get('/settings'),
+    getAll: () => api.get('/settings'), // Public only
+    getAdminAll: () => api.get('/settings/admin/all'), // Admin only (all keys)
     get: (key) => api.get(`/settings/${key}`),
     update: (key, value) => api.put(`/settings/${key}`, { value }),
 };
@@ -150,6 +153,12 @@ export const authApi = {
 
 export const reviewsApi = {
     getByProduct: (productId) => api.get(`/reviews/product/${productId}`),
+};
+
+export const wishlistsApi = {
+    getAll: () => api.get('/wishlists'),
+    toggle: (productId) => api.post('/wishlists', { productId }),
+    check: (productId) => api.get(`/wishlists/check/${productId}`),
 };
 
 export const uploadApi = {

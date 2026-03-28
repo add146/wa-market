@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Icon, Modal } from '../components/atoms'
 import { useAuth } from '../context'
 import api from '../api/client'
+import { formatDateTimeWIB } from '../utils/dateWIB'
 
 /**
  * MyOrdersPage - Customer view of their own orders (read-only)
@@ -50,16 +51,7 @@ function MyOrdersPage() {
         }
     }
 
-    const formatDate = (date) => {
-        if (!date) return '-'
-        return new Date(date).toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        })
-    }
+    const formatDate = (date) => formatDateTimeWIB(date)
 
     const openDetail = (order) => {
         setSelectedOrder(order)
@@ -185,6 +177,12 @@ function MyOrdersPage() {
                         <div className="border-t pt-4">
                             <p className="text-slate-500 text-sm mb-1">Kurir</p>
                             <p className="font-medium text-slate-900 dark:text-white">{selectedOrder.courierName || '-'}</p>
+                            {selectedOrder.shippingType === 'own_courier' && selectedOrder.deliverySlot && (
+                                <p className="text-sm mt-1">
+                                    <span className="text-slate-500">Jadwal Kirim: </span>
+                                    <span className="font-medium text-emerald-600 dark:text-emerald-400">{selectedOrder.deliverySlot}</span>
+                                </p>
+                            )}
                         </div>
 
                         <div className="border-t pt-4 space-y-2">

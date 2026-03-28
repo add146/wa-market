@@ -15,6 +15,7 @@ import categoriesRouter from './routes/categories';
 import courierDeliveriesRouter from './routes/couriers';
 import paymentRouter from './routes/payment';
 import subscriptionRouter from './routes/subscription';
+import wishlistsRouter from './routes/wishlists';
 
 export type Env = {
   DB: D1Database;
@@ -36,7 +37,7 @@ app.use('*', cors({
             'http://localhost:5174',
             'https://wa-market-web.pages.dev',
         ];
-        if (!origin || allowed.includes(origin) || origin.endsWith('.pages.dev')) {
+        if (!origin || allowed.includes(origin) || origin.endsWith('.pages.dev') || origin.endsWith('unikasik.com')) {
             return origin || '*';
         }
         return origin;
@@ -67,6 +68,7 @@ app.route('/api/s/:slug/products', productsRouter);
 app.route('/api/s/:slug/categories', categoriesRouter);
 app.route('/api/s/:slug/couriers', courierDeliveriesRouter);
 app.route('/api/s/:slug/payment', paymentRouter);
+app.route('/api/s/:slug/wishlists', wishlistsRouter);
 
 // Serve R2 files
 app.get('/uploads/:filename', async (c) => {

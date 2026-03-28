@@ -16,6 +16,7 @@ function OrderSummary({
     totalSavings,
     onCheckout,
     isLoading,
+    paymentMethod = 'manual',
 }) {
     return (
         <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-color dark:border-surface-dark shadow-lg overflow-hidden">
@@ -125,7 +126,11 @@ function OrderSummary({
             {/* CTA Section */}
             <div className="bg-background-light dark:bg-[#152a23] p-6 lg:p-8 border-t border-border-color dark:border-surface-dark">
                 <p className="text-sm text-center text-text-main-light/70 dark:text-gray-400 mb-4">
-                    Kirim detail pesanan ini ke WhatsApp Admin. <strong>Wajib lampirkan bukti transfer (Foto Nota)</strong> ke nomor tersebut agar pesanan langsung diproses.
+                    {paymentMethod === 'cod' ? (
+                        <>Kirim konfirmasi pesanan ini ke WhatsApp Admin/Kasir. <strong>Siapkan uang tunai</strong> sesuai total bayar saat kurir tiba di alamat Anda.</>
+                    ) : (
+                        <>Kirim detail pesanan ini ke WhatsApp Admin. <strong>Wajib lampirkan bukti transfer (Foto Nota)</strong> ke nomor tersebut agar pesanan langsung diproses.</>
+                    )}
                 </p>
 
                 <Button
@@ -142,7 +147,7 @@ function OrderSummary({
                     ) : (
                         <>
                             <Icon name="chat" size={24} className="group-hover:animate-pulse" />
-                            KIRIM NOTA VIA WA
+                            {paymentMethod === 'cod' ? 'KONFIRMASI VIA WA' : 'KIRIM NOTA VIA WA'}
                         </>
                     )}
                 </Button>

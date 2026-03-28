@@ -118,6 +118,9 @@ export const products = sqliteTable('products', {
     slug: text('slug').notNull(),
     description: text('description'),
     categoryId: text('category_id').references(() => categories.id),
+    productType: text('product_type').default('regular'), // 'regular' | 'preorder' | 'digital'
+    preorderDays: integer('preorder_days').default(0),
+    digitalContent: text('digital_content'),
     price: integer('price').notNull(),
     costPrice: integer('cost_price').default(0),
     originalPrice: integer('original_price'),
@@ -246,7 +249,12 @@ export const orders = sqliteTable('orders', {
     status: text('status').notNull().default('pending'), // pending, processing, on_delivery, completed, cancelled
     paymentMethod: text('payment_method').default('whatsapp'), // 'whatsapp' | 'xendit' | 'midtrans'
     paymentStatus: text('payment_status').default('unpaid'), // 'unpaid' | 'paid' | 'expired'
+    deliverySlot: text('delivery_slot'), // e.g. "Hari Ini, 28 Mar 2026, 09:00"
     whatsappSent: integer('whatsapp_sent', { mode: 'boolean' }).default(false),
+    hasDigitalItems: integer('has_digital_items', { mode: 'boolean' }).default(false),
+    hasPreorderItems: integer('has_preorder_items', { mode: 'boolean' }).default(false),
+    maxPreorderDays: integer('max_preorder_days').default(0),
+    digitalDeliveryStatus: text('digital_delivery_status'), // null | 'pending' | 'sent'
     createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(now),
     updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(now),
 }, (table) => ({
@@ -394,9 +402,38 @@ export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
     }),
 }));
 
+// ============================================
+// WISHLISTS TABLE
+// ============================================
+export const wishlists = sqliteTable('wishlists', {
+    id: text('id').primaryKey().$defaultFn(generateId),
+    storeId: text('store_id').references(() => stores.id, { onDelete: 'cascade' }).notNull(),
+    userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    productId: text('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(now),
+}, (table) => ({
+    unqUserProductStore: unique().on(table.userId, table.productId, table.storeId),
+}));
+
+export const wishlistsRelations = relations(wishlists, ({ one }) => ({
+    store: one(stores, {
+        fields: [wishlists.storeId],
+        references: [stores.id],
+    }),
+    user: one(users, {
+        fields: [wishlists.userId],
+        references: [users.id],
+    }),
+    product: one(products, {
+        fields: [wishlists.productId],
+        references: [products.id],
+    }),
+}));
+
 export type Store = typeof stores.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type CourierDelivery = typeof courierDeliveries.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
+export type Wishlist = typeof wishlists.$inferSelect;

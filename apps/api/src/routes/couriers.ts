@@ -109,6 +109,39 @@ router.delete('/admin/:id', authMiddleware, adminMiddleware, async (c) => {
     }
 });
 
+/**
+ * GET /api/s/:slug/admin/couriers/:id/deliveries
+ * List all deliveries for a specific courier (admin view for reporting)
+ */
+router.get('/admin/:id/deliveries', authMiddleware, adminMiddleware, async (c) => {
+    try {
+        const db = getDb(c.env);
+        const store = c.get('store');
+        const courierId = c.req.param('id') as string;
+
+        const deliveries = await db.select({
+            delivery: courierDeliveries,
+            order: orders
+        })
+        .from(courierDeliveries)
+        .leftJoin(orders, eq(courierDeliveries.orderId, orders.id))
+        .where(and(
+            eq(courierDeliveries.courierId, courierId),
+            eq(courierDeliveries.storeId, store.id)
+        ))
+        .orderBy(desc(courierDeliveries.assignedAt));
+
+        const result = deliveries.map(d => ({
+            ...d.delivery,
+            orderData: d.order
+        }));
+
+        return c.json(result);
+    } catch (e) {
+        return c.json({ error: 'Failed to fetch courier deliveries' }, 500);
+    }
+});
+
 // ----------------------------------------------------
 // COURIER ENDPOINTS (MOBILE-FIRST DASHBOARD)
 // ----------------------------------------------------
