@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import AdminHeader from '../components/organisms/AdminHeader'
 import { Icon, Modal } from '../components/atoms'
-import { useOrders } from '../hooks'
+import { useOrders, useAdminCouriers, useAssignCourier } from '../hooks'
 import { ordersApi } from '../api/client'
 import { useAuth, useToast } from '../context'
 
@@ -24,7 +24,13 @@ function AdminOrdersPage() {
     // Confirmation modals state
     const [showApproveModal, setShowApproveModal] = useState(false)
     const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [showAssignModal, setShowAssignModal] = useState(false)
     const [orderToAction, setOrderToAction] = useState(null)
+    const [selectedCourierId, setSelectedCourierId] = useState('')
+
+    // Fetches
+    const { data: couriers = [] } = useAdminCouriers()
+    const assignCourier = useAssignCourier()
 
     const toast = useToast()
 
@@ -95,6 +101,44 @@ function AdminOrdersPage() {
             refetch?.()
         } catch (error) {
             toast.error('Gagal menghapus pesanan: ' + (error.message || 'Unknown error'))
+        } finally {
+            setActionLoading(null)
+        }
+    }
+
+    // Open assign courier modal
+    const openAssignModal = (order) => {
+        setOrderToAction(order)
+        setSelectedCourierId('')
+        setShowAssignModal(true)
+        setShowDetailModal(false)
+    }
+
+    // Confirm assign action
+    const confirmAssignCourier = async () => {
+        if (!orderToAction || !selectedCourierId) {
+            toast.error('Pilih kurir terlebih dahulu')
+            return
+        }
+        setActionLoading(orderToAction.id)
+        try {
+            const result = await assignCourier.mutateAsync({
+                orderId: orderToAction.id,
+                courierId: selectedCourierId
+            })
+            if (result.whatsappSent) {
+                toast.success('Berhasil ditugaskan & notifikasi WhatsApp terkirim!')
+            } else if (result.whatsappUrl) {
+                toast.success('Berhasil ditugaskan. Mengalihkan ke WhatsApp...')
+                window.open(result.whatsappUrl, '_blank')
+            } else {
+                toast.success('Kurir berhasil ditugaskan.')
+            }
+            setShowAssignModal(false)
+            setOrderToAction(null)
+            refetch?.()
+        } catch (error) {
+            toast.error(error.message || 'Gagal menugaskan kurir')
         } finally {
             setActionLoading(null)
         }
@@ -406,9 +450,19 @@ function AdminOrdersPage() {
 
                         {/* Shipping Info */}
                         <div>
-                            <h4 className="font-semibold text-slate-900 dark:text-white mb-2">🚚 Pengiriman</h4>
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="font-semibold text-slate-900 dark:text-white">🚚 Pengiriman</h4>
+                                {(selectedOrder.status === 'pending' || selectedOrder.status === 'approved') && isAdmin && (
+                                    <button
+                                        onClick={() => openAssignModal(selectedOrder)}
+                                        className="text-xs font-medium px-3 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors flex items-center gap-1"
+                                    >
+                                        <Icon name="two_wheeler" size={14} /> Tugaskan Kurir
+                                    </button>
+                                )}
+                            </div>
                             <div className="text-sm space-y-1 text-slate-700 dark:text-slate-300">
-                                <p><strong>Kurir:</strong> {selectedOrder.courierName}</p>
+                                <p><strong>Penyedia / Kurir:</strong> {selectedOrder.courierName}</p>
                                 <p><strong>Ongkir:</strong> Rp {(selectedOrder.shippingCost || 0).toLocaleString('id-ID')}</p>
                             </div>
                         </div>
@@ -529,6 +583,58 @@ function AdminOrdersPage() {
                     >
                         {actionLoading ? 'Menghapus...' : 'Hapus'}
                     </button>
+                </div>
+            </Modal>
+
+            {/* Assign Courier Confirmation Modal */}
+            <Modal
+                isOpen={showAssignModal}
+                onClose={() => { setShowAssignModal(false); setOrderToAction(null) }}
+                title="Tugaskan Kurir"
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Tugaskan kurir internal untuk pesanan <strong>#{orderToAction?.orderNumber}</strong>. Sebuah notifikasi WhatsApp dengan detail alamat akan dikirim ke perangkat Kurir.
+                    </p>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Pilih Kurir</label>
+                        {couriers.length === 0 ? (
+                            <div className="p-3 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 text-sm rounded-lg border border-yellow-200 dark:border-yellow-800/50">
+                                Tidak ada kurir yang terdaftar. Silakan tambah kurir di menu "Kelola Kurir".
+                            </div>
+                        ) : (
+                            <select
+                                value={selectedCourierId}
+                                onChange={(e) => setSelectedCourierId(e.target.value)}
+                                className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                            >
+                                <option value="">-- Pilih Kurir --</option>
+                                {couriers.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                        <button
+                            type="button"
+                            onClick={() => { setShowAssignModal(false); setOrderToAction(null) }}
+                            disabled={actionLoading}
+                            className="flex-1 py-3 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="button"
+                            onClick={confirmAssignCourier}
+                            disabled={actionLoading || !selectedCourierId}
+                            className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                            {actionLoading ? 'Menyimpan...' : 'Kirim Penugasan'}
+                        </button>
+                    </div>
                 </div>
             </Modal>
         </>

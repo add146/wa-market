@@ -151,6 +151,50 @@ function AdminSettingsPage() {
                             </div>
                         </div>
 
+                        {/* WAHA Gateway */}
+                        <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+                            <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                                <Icon name="devices" size={20} />
+                                WAHA Gateway API
+                            </h3>
+                            <p className="text-sm text-slate-500 mb-4">
+                                Konfigurasi otomatisasi Broadcast & Notifikasi WhatsApp.
+                            </p>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Server URL</label>
+                                    <input 
+                                        type="url" 
+                                        value={settings.waha_server_url || ''} 
+                                        onChange={(e) => handleChange('waha_server_url', e.target.value)} 
+                                        placeholder="https://waha.domain.com" 
+                                        className={inputClass} 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">API Key</label>
+                                    <input 
+                                        type="password" 
+                                        value={settings.waha_api_key || ''} 
+                                        onChange={(e) => handleChange('waha_api_key', e.target.value)} 
+                                        placeholder="Secret API Key (Opsional)" 
+                                        className={inputClass} 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Session Name</label>
+                                    <input 
+                                        type="text" 
+                                        value={settings.waha_session || ''} 
+                                        onChange={(e) => handleChange('waha_session', e.target.value)} 
+                                        placeholder="default" 
+                                        className={inputClass} 
+                                    />
+                                    <p className="text-xs text-slate-400 mt-1">Gunakan "default" jika menggunakan versi gratis.</p>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* RajaOngkir API */}
                         <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 p-6">
                             <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">

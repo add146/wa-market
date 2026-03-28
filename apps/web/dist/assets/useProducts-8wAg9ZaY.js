@@ -1,0 +1,1 @@
+import{K as r,A as u}from"./index-B_TQKFDn.js";function n(e={}){return r({queryKey:["products",e],queryFn:async()=>{const{data:t}=await u.getAll(e);return t},staleTime:1e3*60*5})}function s(e){return r({queryKey:["product",e],queryFn:async()=>{const{data:t}=await u.getById(e);return t},enabled:!!e,staleTime:1e3*60*5})}export{s as a,n as u};

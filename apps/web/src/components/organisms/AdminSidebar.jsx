@@ -123,6 +123,7 @@ function AdminSidebar({ pendingCount = 0 }) {
                             <h3 className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Administrasi</h3>
                             <div className="space-y-1">
                                 <AdminNavItem to="/admin/users" icon="group" label="Kelola Pengguna" onClick={closeSidebar} />
+                                <AdminNavItem to="/admin/couriers" icon="two_wheeler" label="Kelola Kurir" onClick={closeSidebar} />
                                 <AdminNavItem to="/admin/coupons" icon="confirmation_number" label="Kupon" onClick={closeSidebar} />
                                 <AdminNavItem to="/admin/shipping" icon="local_shipping" label="Pengiriman" onClick={closeSidebar} />
                                 <AdminNavItem to="/admin/reviews" icon="rate_review" label="Ulasan" onClick={closeSidebar} />

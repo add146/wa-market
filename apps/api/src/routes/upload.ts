@@ -1,0 +1,94 @@
+import { Hono } from 'hono';
+import { authMiddleware, adminMiddleware } from '../middleware/auth';
+import type { Env } from '../index';
+
+const router = new Hono<{ Bindings: Env }>();
+
+// Generates unique filename
+function generateFilename(ext: string) {
+    return crypto.randomUUID() + ext;
+}
+
+/**
+ * POST /api/upload
+ * Upload image to R2 (Admin only)
+ * Format is expected to be uploaded as multipart/form-data
+ * NOTE: Kompresi 80% dilakukan di Frontend React sebelum dikirim ke API
+ */
+router.post('/', authMiddleware, adminMiddleware, async (c) => {
+    try {
+        const formData = await c.req.parseBody();
+        const file = formData['image'] as File;
+        
+        if (!file || typeof file === 'string') {
+            return c.json({ error: 'No image file provided' }, 400);
+        }
+
+        // Validate type
+        const mimeType = file.type;
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!validTypes.includes(mimeType)) {
+            return c.json({ error: 'Invalid file type' }, 400);
+        }
+
+        const ext = '.' + mimeType.split('/')[1].replace('jpeg', 'jpg');
+        const filename = generateFilename(ext);
+
+        const arrayBuffer = await file.arrayBuffer();
+        
+        // Upload to R2 Bucket
+        await c.env.MEDIA_BUCKET.put(filename, arrayBuffer, {
+            httpMetadata: { contentType: mimeType },
+        });
+
+        // The URL path to access via our worker
+        const imageUrl = `/uploads/${filename}`;
+
+        return c.json({
+            success: true,
+            url: imageUrl,
+            filename,
+        });
+    } catch (error) {
+        console.error('Upload Error:', error);
+        return c.json({ error: 'Failed to upload image' }, 500);
+    }
+});
+
+/**
+ * GET /uploads/:filename
+ * Serve image from R2 bucket
+ */
+router.get('/:filename', async (c) => {
+    try {
+        const filename = c.req.param('filename');
+        const object = await c.env.MEDIA_BUCKET.get(filename);
+        
+        if (!object) {
+            return new Response('Not found', { status: 404 });
+        }
+        
+        const headers = new Headers();
+        object.writeHttpMetadata(headers);
+        headers.set('etag', object.httpEtag);
+        
+        return new Response(object.body, { headers });
+    } catch (error) {
+        return new Response('Internal error', { status: 500 });
+    }
+});
+
+/**
+ * DELETE /api/upload/:filename
+ */
+router.delete('/:filename', authMiddleware, adminMiddleware, async (c) => {
+    try {
+        const filename = c.req.param('filename');
+        await c.env.MEDIA_BUCKET.delete(filename);
+        return c.json({ success: true, message: 'Image deleted' });
+    } catch (error) {
+        return c.json({ error: 'Failed to delete' }, 500);
+    }
+});
+
+export default router;

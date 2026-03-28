@@ -1,0 +1,17 @@
+name = "wa-market-api"
+main = "src/index.ts"
+compatibility_date = "2024-04-19"
+compatibility_flags = [ "nodejs_compat" ]
+
+# [vars]
+# MY_VARIABLE = "production_value"
+
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "wa-market-media"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "wa_market_db"
+database_id = "943f849c-5b3a-49be-9657-0d725b81ba29"
+migrations_dir = "drizzle"

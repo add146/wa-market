@@ -39,6 +39,8 @@ function LoginPage() {
             // Redirect based on role
             if (result.user.role === 'admin') {
                 navigate('/admin')
+            } else if (result.user.role === 'courier') {
+                navigate('/courier')
             } else if (result.user.role === 'seller') {
                 navigate('/seller')
             } else {
@@ -179,8 +181,8 @@ function LoginPage() {
                     </p>
                     <ul className="space-y-1 text-blue-600 dark:text-blue-400">
                         <li><strong>User:</strong> Belanja & checkout</li>
-                        <li><strong>Seller:</strong> Kelola produk sendiri</li>
                         <li><strong>Admin:</strong> Akses penuh dashboard</li>
+                        <li><strong>Kurir:</strong> Akses pengantaran</li>
                     </ul>
                 </div>
             </div>

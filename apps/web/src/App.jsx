@@ -4,6 +4,13 @@ import MainLayout from './components/templates/MainLayout'
 import AdminLayout from './components/templates/AdminLayout'
 import LoadingState from './components/atoms/LoadingState'
 import ProtectedRoute from './components/ProtectedRoute'
+import { StoreProvider } from './context/StoreContext'
+import { Navigate } from 'react-router-dom'
+
+// Lazy load pages for better performance
+const LandingPage = lazy(() => import('./pages/saas/LandingPage'))
+const SuperAdminPage = lazy(() => import('./pages/saas/SuperAdminPage'))
+const SuperAdminLoginPage = lazy(() => import('./pages/saas/SuperAdminLoginPage'))
 
 // Lazy load pages for better performance
 const HomePage = lazy(() => import('./pages/HomePage'))
@@ -15,6 +22,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'))
 const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const UnauthorizedPage = lazy(() => import('./pages/UnauthorizedPage'))
 const MyOrdersPage = lazy(() => import('./pages/MyOrdersPage'))
+const CourierDashboardPage = lazy(() => import('./pages/CourierDashboardPage'))
 
 // Admin pages
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'))
@@ -30,8 +38,9 @@ const AdminAnalyticsPage = lazy(() => import('./pages/AdminAnalyticsPage'))
 const AdminBannersPage = lazy(() => import('./pages/AdminBannersPage'))
 const AdminCustomersPage = lazy(() => import('./pages/AdminCustomersPage'))
 const AdminNotFoundPage = lazy(() => import('./pages/AdminNotFoundPage'))
+const AdminCouriersPage = lazy(() => import('./pages/AdminCouriersPage'))
 
-function App() {
+function StorefrontApp() {
     return (
         <Routes>
             {/* Auth Routes */}
@@ -107,6 +116,11 @@ function App() {
                                             <AdminUsersPage />
                                         </ProtectedRoute>
                                     } />
+                                    <Route path="couriers" element={
+                                        <ProtectedRoute requiredRole="admin" redirectTo="/unauthorized">
+                                            <AdminCouriersPage />
+                                        </ProtectedRoute>
+                                    } />
                                     <Route path="customers" element={
                                         <ProtectedRoute requiredRole="admin" redirectTo="/unauthorized">
                                             <AdminCustomersPage />
@@ -156,6 +170,18 @@ function App() {
                 }
             />
 
+            {/* Courier Dashboard is fully standalone */}
+            <Route
+                path="/courier"
+                element={
+                    <ProtectedRoute requiredRole="courier" redirectTo="/login">
+                        <Suspense fallback={<LoadingState />}>
+                            <CourierDashboardPage />
+                        </Suspense>
+                    </ProtectedRoute>
+                }
+            />
+
             {/* Cart has its own layout */}
             <Route
                 path="/cart"
@@ -200,6 +226,38 @@ function App() {
                     </MainLayout>
                 }
             />
+        </Routes>
+    )
+}
+
+function App({ slug }) {
+    if (slug) {
+        return (
+            <StoreProvider manualSlug={slug}>
+                <StorefrontApp />
+            </StoreProvider>
+        )
+    }
+
+    // Global SaaS Landing Page
+    return (
+        <Routes>
+            <Route path="/superadmin/login" element={
+                 <Suspense fallback={<LoadingState />}>
+                    <SuperAdminLoginPage />
+                 </Suspense>
+            } />
+            <Route path="/superadmin" element={
+                 <Suspense fallback={<LoadingState />}>
+                    <SuperAdminPage />
+                 </Suspense>
+            } />
+            <Route path="/" element={
+                 <Suspense fallback={<LoadingState />}>
+                    <LandingPage />
+                 </Suspense>
+            } />
+            <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     )
 }

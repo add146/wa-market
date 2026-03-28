@@ -1,7 +1,8 @@
 import axios from 'axios';
+import imageCompression from 'browser-image-compression';
 
 // Base API URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 // Create axios instance
 const api = axios.create({
@@ -12,18 +13,47 @@ const api = axios.create({
     withCredentials: true,
 });
 
-// Request interceptor to add auth token
+// Dynamic slug for multi-tenant
+export let currentStoreSlug = '';
+
+export const setStoreSlug = (slug) => {
+    if (slug) {
+        currentStoreSlug = slug;
+    }
+};
+
+// Request interceptor to add auth token and tenant slug
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('auth_token');
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Inject tenant slug: /s/:slug
+    if (currentStoreSlug && config.url) {
+        // If it's not a global route, inject the slug prefix
+        const isGlobalRoute = config.url.startsWith('/stores') || 
+                              config.url.startsWith('/upload') || 
+                              config.url.startsWith('/health');
+        
+        if (!isGlobalRoute) {
+            const separator = config.url.startsWith('/') ? '' : '/';
+            config.url = `/s/${currentStoreSlug}${separator}${config.url}`;
+        }
+    }
+
     return config;
 });
 
 // Response interceptor for error handling
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        // Prevent Cloudflare Pages fallback HTML from crashing the app
+        if (typeof response.data === 'string' && response.data.trim().toLowerCase().startsWith('<!doctype html>')) {
+            return Promise.reject(new Error('API Error: Endpoint returned HTML. Backend is likely unreachable.'));
+        }
+        return response;
+    },
     (error) => {
         const message = error.response?.data?.error || error.message || 'Terjadi kesalahan';
         const details = error.response?.data?.details;
@@ -74,6 +104,18 @@ export const ordersApi = {
     approve: (id) => api.patch(`/orders/${id}/approve`),
     updateStatus: (id, status) => api.patch(`/orders/${id}/status`, { status }),
     delete: (id) => api.delete(`/orders/${id}`),
+    assignCourier: (id, data) => api.post(`/orders/${id}/assign-courier`, data),
+};
+
+export const couriersApi = {
+    // Admin
+    getAll: () => api.get('/admin/couriers'),
+    create: (data) => api.post('/admin/couriers', data),
+    delete: (id) => api.delete(`/admin/couriers/${id}`),
+    // Courier Dashboard
+    getDeliveries: (params) => api.get('/courier/deliveries', { params }),
+    getDeliveryById: (id) => api.get(`/courier/deliveries/${id}`),
+    updateDeliveryStatus: (id, data) => api.patch(`/courier/deliveries/${id}`, data),
 };
 
 export const cartApi = {
@@ -113,14 +155,37 @@ export const reviewsApi = {
 export const uploadApi = {
     upload: async (file) => {
         const formData = new FormData();
-        formData.append('image', file);
+        try {
+            const compressedFile = await imageCompression(file, {
+                maxSizeMB: 1,
+                maxWidthOrHeight: 1920,
+                useWebWorker: true,
+                initialQuality: 0.8
+            });
+            formData.append('image', compressedFile);
+        } catch (error) {
+            console.error('Image compression failed', error);
+            formData.append('image', file); // fallback
+        }
         return api.post('/upload', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
     },
     uploadMultiple: async (files) => {
         const formData = new FormData();
-        files.forEach(file => formData.append('images', file));
+        for (const file of files) {
+            try {
+                const compressedFile = await imageCompression(file, {
+                    maxSizeMB: 1,
+                    maxWidthOrHeight: 1920,
+                    useWebWorker: true,
+                    initialQuality: 0.8
+                });
+                formData.append('images', compressedFile);
+            } catch (error) {
+                formData.append('images', file); // fallback
+            }
+        }
         return api.post('/upload/multiple', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
