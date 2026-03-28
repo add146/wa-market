@@ -16,6 +16,7 @@ import courierDeliveriesRouter from './routes/couriers';
 import paymentRouter from './routes/payment';
 import subscriptionRouter from './routes/subscription';
 import wishlistsRouter from './routes/wishlists';
+import shippingRouter from './routes/shipping';
 
 export type Env = {
   DB: D1Database;
@@ -69,6 +70,7 @@ app.route('/api/s/:slug/categories', categoriesRouter);
 app.route('/api/s/:slug/couriers', courierDeliveriesRouter);
 app.route('/api/s/:slug/payment', paymentRouter);
 app.route('/api/s/:slug/wishlists', wishlistsRouter);
+app.route('/api/s/:slug/shipping', shippingRouter);
 
 // Serve R2 files
 app.get('/uploads/:filename', async (c) => {

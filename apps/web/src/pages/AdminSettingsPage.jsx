@@ -14,12 +14,11 @@ function AdminSettingsPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
 
-    // RajaOngkir Direct Search state
-    const [originSearch, setOriginSearch] = useState('')
-    const [originResults, setOriginResults] = useState([])
-    const [selectedOrigin, setSelectedOrigin] = useState(null)
-    const [showOriginResults, setShowOriginResults] = useState(false)
-    const [loadingOriginSearch, setLoadingOriginSearch] = useState(false)
+    // RajaOngkir Dropdown state
+    const [provinces, setProvinces] = useState([])
+    const [cities, setCities] = useState([])
+    const [subdistricts, setSubdistricts] = useState([])
+    const [loadingRajaongkir, setLoadingRajaongkir] = useState(false)
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -50,6 +49,61 @@ function AdminSettingsPage() {
         }
         fetchSettings()
     }, [])
+
+    // Fetch Provinces on Load
+    useEffect(() => {
+        if (!settings.rajaongkir_api_key) return
+        
+        const fetchProvinces = async () => {
+            try {
+                const res = await rajaongkirApi.getProvinces()
+                setProvinces(res.data?.data || [])
+            } catch (error) {
+                console.error('Failed to fetch provinces', error)
+            }
+        }
+        fetchProvinces()
+    }, [settings.rajaongkir_api_key])
+
+    // Fetch Cities when Province changes
+    useEffect(() => {
+        if (!settings.rajaongkir_origin_province) {
+            setCities([])
+            return
+        }
+        const fetchCities = async () => {
+            setLoadingRajaongkir(true)
+            try {
+                const res = await rajaongkirApi.getCities(settings.rajaongkir_origin_province)
+                setCities(res.data?.data || [])
+            } catch (error) {
+                console.error('Failed to fetch cities', error)
+            } finally {
+                setLoadingRajaongkir(false)
+            }
+        }
+        fetchCities()
+    }, [settings.rajaongkir_origin_province, settings.rajaongkir_api_key])
+
+    // Fetch Subdistricts when City changes
+    useEffect(() => {
+        if (!settings.rajaongkir_origin_city || settings.rajaongkir_tier === 'starter') {
+            setSubdistricts([])
+            return
+        }
+        const fetchSubdistricts = async () => {
+            setLoadingRajaongkir(true)
+            try {
+                const res = await rajaongkirApi.getDistricts(settings.rajaongkir_origin_city)
+                setSubdistricts(res.data?.data || [])
+            } catch (error) {
+                console.error('Failed to fetch subdistricts', error)
+            } finally {
+                setLoadingRajaongkir(false)
+            }
+        }
+        fetchSubdistricts()
+    }, [settings.rajaongkir_origin_city, settings.rajaongkir_tier, settings.rajaongkir_api_key])
 
     const handleSaveAll = async () => {
         setIsSaving(true)
@@ -468,84 +522,92 @@ function AdminSettingsPage() {
                                 {(settings.rajaongkir_enabled === 'true' || settings.rajaongkir_enabled === true) && (
                                     <>
                                         <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tipe Akun API</label>
+                                            <select 
+                                                value={settings.rajaongkir_tier || 'starter'} 
+                                                onChange={(e) => handleChange('rajaongkir_tier', e.target.value)} 
+                                                className={inputClass}
+                                            >
+                                                <option value="starter">Starter (Tanpa Kecamatan)</option>
+                                                <option value="basic">Basic</option>
+                                                <option value="pro">Pro (Dukung Kecamatan)</option>
+                                            </select>
+                                        </div>
+                                        <div>
                                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">API Key RajaOngkir</label>
                                             <input type="password" value={settings.rajaongkir_api_key || ''} onChange={(e) => handleChange('rajaongkir_api_key', e.target.value)} placeholder="Masukkan API Key dari rajaongkir.com" className={inputClass} />
                                             <p className="text-xs text-slate-400 mt-1">Dapatkan API Key di <a href="https://rajaongkir.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">rajaongkir.com</a></p>
                                         </div>
 
-                                        {/* Origin Location Search */}
+                                        {/* Origin Location Selection */}
                                         {settings.rajaongkir_api_key && (
-                                            <div className="relative">
-                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Lokasi Asal Pengiriman</label>
-                                                <div className="relative">
-                                                    <input
-                                                        type="text"
-                                                        value={originSearch}
-                                                        onChange={async (e) => {
-                                                            setOriginSearch(e.target.value)
-                                                            setShowOriginResults(true)
-                                                            setSelectedOrigin(null)
-
-                                                            if (e.target.value.length >= 3) {
-                                                                setLoadingOriginSearch(true)
-                                                                try {
-                                                                    const response = await rajaongkirApi.searchDestination(e.target.value)
-                                                                    setOriginResults(response.data?.data || [])
-                                                                } catch (err) {
-                                                                    console.error('Search error:', err)
-                                                                    setOriginResults([])
-                                                                } finally {
-                                                                    setLoadingOriginSearch(false)
-                                                                }
-                                                            } else {
-                                                                setOriginResults([])
-                                                            }
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Provinsi Asal</label>
+                                                    <select
+                                                        value={settings.rajaongkir_origin_province || ''}
+                                                        onChange={(e) => {
+                                                            const pId = e.target.value;
+                                                            handleChange('rajaongkir_origin_province', pId);
+                                                            handleChange('rajaongkir_origin_city', '');
+                                                            handleChange('rajaongkir_origin_subdistrict', '');
+                                                            const pName = provinces.find(p => String(p.province_id) === pId)?.province || '';
+                                                            handleChange('rajaongkir_origin_province_name', pName);
                                                         }}
-                                                        onFocus={() => setShowOriginResults(true)}
-                                                        placeholder="Ketik nama kota/kecamatan (min 3 huruf)..."
                                                         className={inputClass}
-                                                    />
-                                                    {loadingOriginSearch && (
-                                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">⏳</span>
-                                                    )}
+                                                    >
+                                                        <option value="">Pilih Provinsi...</option>
+                                                        {provinces.map(p => (
+                                                            <option key={p.province_id} value={p.province_id}>{p.province}</option>
+                                                        ))}
+                                                    </select>
                                                 </div>
 
-                                                {/* Search Results Dropdown */}
-                                                {showOriginResults && originResults.length > 0 && (
-                                                    <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
-                                                        {originResults.map((loc, idx) => (
-                                                            <button
-                                                                key={idx}
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setSelectedOrigin(loc)
-                                                                    setOriginSearch(loc.label)
-                                                                    setShowOriginResults(false)
-                                                                    handleChange('rajaongkir_origin_city', String(loc.id))
-                                                                    handleChange('rajaongkir_origin_city_name', loc.label)
-                                                                }}
-                                                                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-0"
-                                                            >
-                                                                <p className="font-medium text-slate-900 dark:text-white text-sm">{loc.subdistrict_name}</p>
-                                                                <p className="text-xs text-slate-500">{loc.district_name}, {loc.city_name}, {loc.province_name}</p>
-                                                            </button>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Kota/Kab. Asal</label>
+                                                    <select
+                                                        value={settings.rajaongkir_origin_city || ''}
+                                                        onChange={(e) => {
+                                                            const cId = e.target.value;
+                                                            handleChange('rajaongkir_origin_city', cId);
+                                                            handleChange('rajaongkir_origin_subdistrict', '');
+                                                            const cData = cities.find(c => String(c.city_id) === cId);
+                                                            if (cData) {
+                                                                const fullName = `${cData.type} ${cData.city_name}`;
+                                                                handleChange('rajaongkir_origin_city_name', fullName);
+                                                            }
+                                                        }}
+                                                        disabled={!settings.rajaongkir_origin_province || loadingRajaongkir}
+                                                        className={inputClass}
+                                                    >
+                                                        <option value="">Pilih Kota/Kabupaten...</option>
+                                                        {cities.map(c => (
+                                                            <option key={c.city_id} value={c.city_id}>{c.type} {c.city_name}</option>
                                                         ))}
+                                                    </select>
+                                                </div>
+
+                                                {settings.rajaongkir_tier !== 'starter' && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Kecamatan Asal (Opsional untuk Pro/Basic)</label>
+                                                        <select
+                                                            value={settings.rajaongkir_origin_subdistrict || ''}
+                                                            onChange={(e) => {
+                                                                handleChange('rajaongkir_origin_subdistrict', e.target.value);
+                                                                const subName = subdistricts.find(s => String(s.subdistrict_id) === String(e.target.value))?.subdistrict_name || '';
+                                                                handleChange('rajaongkir_origin_subdistrict_name', subName);
+                                                            }}
+                                                            disabled={!settings.rajaongkir_origin_city || loadingRajaongkir}
+                                                            className={inputClass}
+                                                        >
+                                                            <option value="">Pilih Kecamatan...</option>
+                                                            {subdistricts.map(s => (
+                                                                <option key={s.subdistrict_id} value={s.subdistrict_id}>{s.subdistrict_name}</option>
+                                                            ))}
+                                                        </select>
                                                     </div>
                                                 )}
 
-                                                {/* Selected Origin */}
-                                                {selectedOrigin && (
-                                                    <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                                                        <p className="text-sm text-green-700 dark:text-green-400">✓ Asal: {selectedOrigin.label}</p>
-                                                    </div>
-                                                )}
-
-                                                {/* Saved Origin */}
-                                                {settings.rajaongkir_origin_city_name && !selectedOrigin && (
-                                                    <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                                                        <p className="text-sm text-green-700 dark:text-green-400">✓ Tersimpan: {settings.rajaongkir_origin_city_name}</p>
-                                                    </div>
-                                                )}
                                             </div>
                                         )}
 

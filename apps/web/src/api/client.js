@@ -204,7 +204,6 @@ export const uploadApi = {
 
 // RajaOngkir Shipping API
 export const rajaongkirApi = {
-    searchDestination: (keyword) => api.get(`/shipping/search-destination?keyword=${encodeURIComponent(keyword)}`),
     getProvinces: () => api.get('/shipping/provinces'),
     getCities: (provinceId) => api.get(`/shipping/cities/${provinceId}`),
     getDistricts: (cityId) => api.get(`/shipping/districts/${cityId}`),
