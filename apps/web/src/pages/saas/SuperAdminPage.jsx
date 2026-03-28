@@ -54,7 +54,7 @@ function StatCard({ icon, label, value, color = 'blue', sub }) {
             <div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide uppercase">{label}</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">{value}</p>
-                {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
+                {sub && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{sub}</p>}
             </div>
         </div>
     )
@@ -152,7 +152,7 @@ function SuperAdminPage() {
     // Auth guard
     if (sessionLoading) {
         return (
-            <div className="min-h-screen bg-[#0B1120] flex items-center justify-center">
+            <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] flex items-center justify-center">
                 <Icon name="sync" size={48} className="animate-spin text-indigo-400" />
             </div>
         )
@@ -206,16 +206,16 @@ function SuperAdminPage() {
     ]
 
     return (
-        <div className="min-h-screen bg-[#0B1120] font-display">
+        <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] font-display">
             {/* Header */}
-            <header className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-30">
+            <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700/50 sticky top-0 z-30">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                        <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center text-slate-900 dark:text-white shadow-lg shadow-indigo-500/20">
                             <Icon name="admin_panel_settings" size={22} />
                         </div>
                         <div>
-                            <span className="font-bold text-white text-sm">Superadmin Console</span>
+                            <span className="font-bold text-slate-900 dark:text-white text-sm">Superadmin Console</span>
                             <span className="text-slate-500 text-xs ml-2 hidden sm:inline">WA Market Platform</span>
                         </div>
                     </div>
@@ -223,12 +223,12 @@ function SuperAdminPage() {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={toggleTheme}
-                            className="text-slate-400 hover:text-slate-200 bg-slate-800 p-2 rounded-lg transition-colors border border-slate-700 hover:border-slate-500"
+                            className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-white dark:bg-slate-800 p-2 rounded-lg transition-colors border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-500"
                             title="Ganti Tema"
                         >
                             <Icon name={isDarkMode ? 'light_mode' : 'dark_mode'} size={18} />
                         </button>
-                        <span className="text-xs font-medium text-slate-400 hidden sm:inline">
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 hidden sm:inline">
                             {session?.user?.name} ({session?.user?.phone})
                         </span>
                         <button
@@ -242,7 +242,7 @@ function SuperAdminPage() {
             </header>
 
             {/* Tab Navigation */}
-            <div className="bg-slate-900/50 border-b border-slate-800">
+            <div className="bg-white/50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-1 overflow-x-auto">
                     {tabs.map(tab => (
                         <button
@@ -251,7 +251,7 @@ function SuperAdminPage() {
                             className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
                                 activeTab === tab.id
                                     ? 'border-indigo-500 text-indigo-400'
-                                    : 'border-transparent text-slate-500 hover:text-slate-300 hover:border-slate-600'
+                                    : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
                             }`}
                         >
                             <Icon name={tab.icon} size={18} /> {tab.label}
@@ -265,8 +265,8 @@ function SuperAdminPage() {
                 {activeTab === 'overview' && (
                     <div className="space-y-8">
                         <div>
-                            <h2 className="text-xl font-bold text-white mb-1">Platform Overview</h2>
-                            <p className="text-slate-400 text-sm">Ringkasan statistik platform WA Market secara keseluruhan.</p>
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Platform Overview</h2>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm">Ringkasan statistik platform WA Market secara keseluruhan.</p>
                         </div>
 
                         {statsLoading ? (
@@ -284,16 +284,16 @@ function SuperAdminPage() {
 
                         {/* Quick plan distribution */}
                         {!storesLoading && stores.length > 0 && (
-                            <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
-                                <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-4">Distribusi Plan</h3>
+                            <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-6">
+                                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-4">Distribusi Plan</h3>
                                 <div className="grid grid-cols-3 gap-4">
                                     {['free', 'starter', 'pro'].map(plan => {
                                         const cnt = stores.filter(s => s.plan === plan).length
                                         const pct = stores.length > 0 ? Math.round((cnt / stores.length) * 100) : 0
                                         return (
                                             <div key={plan} className="text-center">
-                                                <p className="text-3xl font-bold text-white">{cnt}</p>
-                                                <p className="text-xs text-slate-400 mt-1">{PLAN_CONFIG[plan].icon} {PLAN_CONFIG[plan].label}</p>
+                                                <p className="text-3xl font-bold text-slate-900 dark:text-white">{cnt}</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{PLAN_CONFIG[plan].icon} {PLAN_CONFIG[plan].label}</p>
                                                 <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                                                     <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                                                 </div>
@@ -312,19 +312,19 @@ function SuperAdminPage() {
                     <div className="space-y-6">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div>
-                                <h2 className="text-xl font-bold text-white mb-1">Kelola Toko</h2>
-                                <p className="text-slate-400 text-sm">{stores.length} toko terdaftar di platform</p>
+                                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Kelola Toko</h2>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm">{stores.length} toko terdaftar di platform</p>
                             </div>
                             <div className="flex gap-2">
                                 <select value={filterPlan} onChange={e => setFilterPlan(e.target.value)}
-                                    className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500">
+                                    className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500">
                                     <option value="all">Semua Plan</option>
                                     <option value="free">Free</option>
                                     <option value="starter">Starter</option>
                                     <option value="pro">Pro</option>
                                 </select>
                                 <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                                    className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500">
+                                    className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500">
                                     <option value="all">Semua Status</option>
                                     <option value="active">Aktif</option>
                                     <option value="inactive">Nonaktif</option>
@@ -335,11 +335,11 @@ function SuperAdminPage() {
                         {storesLoading ? (
                             <div className="flex justify-center py-12"><Icon name="sync" size={32} className="animate-spin text-indigo-400" /></div>
                         ) : (
-                            <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl overflow-hidden">
+                            <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl overflow-hidden">
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left text-sm">
                                         <thead>
-                                            <tr className="text-xs text-slate-500 uppercase tracking-wider border-b border-slate-700/50">
+                                            <tr className="text-xs text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700/50">
                                                 <th className="px-5 py-4">Toko</th>
                                                 <th className="px-5 py-4">Plan</th>
                                                 <th className="px-5 py-4 text-center hidden md:table-cell">Produk</th>
@@ -357,7 +357,7 @@ function SuperAdminPage() {
                                                         <div className="flex items-center gap-3">
                                                             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${store.isActive ? 'bg-green-400' : 'bg-red-400'}`} />
                                                             <div>
-                                                                <a href={`/s/${store.slug}`} target="_blank" rel="noreferrer" className="font-bold text-white hover:text-indigo-400 transition-colors">
+                                                                <a href={`/s/${store.slug}`} target="_blank" rel="noreferrer" className="font-bold text-slate-900 dark:text-white hover:text-indigo-400 transition-colors">
                                                                     {store.name}
                                                                 </a>
                                                                 <p className="text-xs text-slate-500 font-mono">
@@ -377,9 +377,9 @@ function SuperAdminPage() {
                                                             {PLAN_CONFIG[store.plan]?.icon} {PLAN_CONFIG[store.plan]?.label || store.plan}
                                                         </span>
                                                     </td>
-                                                    <td className="px-5 py-4 text-center text-slate-300 hidden md:table-cell">{store._stats?.products || 0}</td>
-                                                    <td className="px-5 py-4 text-center text-slate-300 hidden md:table-cell">{store._stats?.orders || 0}</td>
-                                                    <td className="px-5 py-4 text-right text-slate-300 text-xs hidden lg:table-cell">{formatCurrency(store._stats?.revenue)}</td>
+                                                    <td className="px-5 py-4 text-center text-slate-700 dark:text-slate-300 hidden md:table-cell">{store._stats?.products || 0}</td>
+                                                    <td className="px-5 py-4 text-center text-slate-700 dark:text-slate-300 hidden md:table-cell">{store._stats?.orders || 0}</td>
+                                                    <td className="px-5 py-4 text-right text-slate-700 dark:text-slate-300 text-xs hidden lg:table-cell">{formatCurrency(store._stats?.revenue)}</td>
                                                     <td className="px-5 py-4">
                                                         <div className="flex items-center justify-end gap-1">
                                                             <button
@@ -424,17 +424,17 @@ function SuperAdminPage() {
                 {activeTab === 'plans' && (
                     <div className="space-y-8">
                         <div>
-                            <h2 className="text-xl font-bold text-white mb-1">Paket & Fitur</h2>
-                            <p className="text-slate-400 text-sm">Perbandingan fitur per tingkat langganan toko.</p>
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Paket & Fitur</h2>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm">Perbandingan fitur per tingkat langganan toko.</p>
                         </div>
 
-                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl overflow-hidden">
+                        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl overflow-hidden">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="border-b border-slate-700/50">
-                                        <th className="px-6 py-4 text-left text-slate-400 text-xs uppercase tracking-wider font-semibold">Fitur</th>
+                                    <tr className="border-b border-slate-200 dark:border-slate-700/50">
+                                        <th className="px-6 py-4 text-left text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold">Fitur</th>
                                         <th className="px-6 py-4 text-center">
-                                            <span className="text-slate-300 font-bold">🆓 Free</span>
+                                            <span className="text-slate-700 dark:text-slate-300 font-bold">🆓 Free</span>
                                         </th>
                                         <th className="px-6 py-4 text-center">
                                             <span className="text-blue-400 font-bold">🚀 Starter</span>
@@ -447,9 +447,9 @@ function SuperAdminPage() {
                                 <tbody>
                                     {PLAN_FEATURES.map((row, i) => (
                                         <tr key={i} className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors">
-                                            <td className="px-6 py-3.5 text-slate-300 font-medium">{row.feature}</td>
-                                            <td className="px-6 py-3.5 text-center text-slate-400">{row.free}</td>
-                                            <td className="px-6 py-3.5 text-center text-slate-300">{row.starter}</td>
+                                            <td className="px-6 py-3.5 text-slate-700 dark:text-slate-300 font-medium">{row.feature}</td>
+                                            <td className="px-6 py-3.5 text-center text-slate-500 dark:text-slate-400">{row.free}</td>
+                                            <td className="px-6 py-3.5 text-center text-slate-700 dark:text-slate-300">{row.starter}</td>
                                             <td className="px-6 py-3.5 text-center text-amber-300 font-semibold">{row.pro}</td>
                                         </tr>
                                     ))}
@@ -458,16 +458,16 @@ function SuperAdminPage() {
                         </div>
 
                         {/* Account Info */}
-                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
-                            <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-4">Akun Superadmin</h3>
+                        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-6">
+                            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-4">Akun Superadmin</h3>
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
                                     <p className="text-slate-500 text-xs mb-1">Nama</p>
-                                    <p className="text-white font-medium">{session.user.name}</p>
+                                    <p className="text-slate-900 dark:text-white font-medium">{session.user.name}</p>
                                 </div>
                                 <div>
                                     <p className="text-slate-500 text-xs mb-1">Nomor WhatsApp</p>
-                                    <p className="text-white font-medium">{session.user.phone}</p>
+                                    <p className="text-slate-900 dark:text-white font-medium">{session.user.phone}</p>
                                 </div>
                                 <div>
                                     <p className="text-slate-500 text-xs mb-1">Role</p>
@@ -475,7 +475,7 @@ function SuperAdminPage() {
                                 </div>
                                 <div>
                                     <p className="text-slate-500 text-xs mb-1">Platform</p>
-                                    <p className="text-white font-medium">Cloudflare Workers + D1</p>
+                                    <p className="text-slate-900 dark:text-white font-medium">Cloudflare Workers + D1</p>
                                 </div>
                             </div>
                         </div>
@@ -486,8 +486,8 @@ function SuperAdminPage() {
                 {activeTab === 'subscriptions' && (
                     <div className="space-y-8">
                         <div>
-                            <h2 className="text-xl font-bold text-white mb-1">Riwayat Langganan</h2>
-                            <p className="text-slate-400 text-sm">Semua pembayaran subscription dari toko-toko.</p>
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Riwayat Langganan</h2>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm">Semua pembayaran subscription dari toko-toko.</p>
                         </div>
 
                         {subsLoading ? (
@@ -495,35 +495,35 @@ function SuperAdminPage() {
                                 <Icon name="sync" size={32} className="animate-spin text-indigo-400 mx-auto" />
                             </div>
                         ) : allSubscriptions.length === 0 ? (
-                            <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-12 text-center">
+                            <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-12 text-center">
                                 <Icon name="credit_card_off" size={48} className="text-slate-600 mx-auto mb-3" />
-                                <p className="text-slate-400">Belum ada langganan.</p>
+                                <p className="text-slate-500 dark:text-slate-400">Belum ada langganan.</p>
                             </div>
                         ) : (
-                            <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl overflow-hidden">
+                            <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl overflow-hidden">
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
                                         <thead>
-                                            <tr className="border-b border-slate-700/50">
-                                                <th className="px-4 py-3 text-left text-slate-400 text-xs uppercase">Toko</th>
-                                                <th className="px-4 py-3 text-left text-slate-400 text-xs uppercase">Plan</th>
-                                                <th className="px-4 py-3 text-left text-slate-400 text-xs uppercase">Provider</th>
-                                                <th className="px-4 py-3 text-right text-slate-400 text-xs uppercase">Nominal</th>
-                                                <th className="px-4 py-3 text-center text-slate-400 text-xs uppercase">Status</th>
-                                                <th className="px-4 py-3 text-left text-slate-400 text-xs uppercase">Berlaku</th>
-                                                <th className="px-4 py-3 text-left text-slate-400 text-xs uppercase">Tanggal</th>
+                                            <tr className="border-b border-slate-200 dark:border-slate-700/50">
+                                                <th className="px-4 py-3 text-left text-slate-500 dark:text-slate-400 text-xs uppercase">Toko</th>
+                                                <th className="px-4 py-3 text-left text-slate-500 dark:text-slate-400 text-xs uppercase">Plan</th>
+                                                <th className="px-4 py-3 text-left text-slate-500 dark:text-slate-400 text-xs uppercase">Provider</th>
+                                                <th className="px-4 py-3 text-right text-slate-500 dark:text-slate-400 text-xs uppercase">Nominal</th>
+                                                <th className="px-4 py-3 text-center text-slate-500 dark:text-slate-400 text-xs uppercase">Status</th>
+                                                <th className="px-4 py-3 text-left text-slate-500 dark:text-slate-400 text-xs uppercase">Berlaku</th>
+                                                <th className="px-4 py-3 text-left text-slate-500 dark:text-slate-400 text-xs uppercase">Tanggal</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {allSubscriptions.map((sub) => (
                                                 <tr key={sub.id} className="border-b border-slate-700/30 hover:bg-slate-700/20">
-                                                    <td className="px-4 py-3 text-white font-medium">{sub.storeName || sub.storeId?.slice(0,8)}</td>
+                                                    <td className="px-4 py-3 text-slate-900 dark:text-white font-medium">{sub.storeName || sub.storeId?.slice(0,8)}</td>
                                                     <td className="px-4 py-3">
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${PLAN_CONFIG[sub.plan]?.color || 'bg-slate-700 text-slate-300'}`}>
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${PLAN_CONFIG[sub.plan]?.color || 'bg-slate-700 text-slate-700 dark:text-slate-300'}`}>
                                                             {PLAN_CONFIG[sub.plan]?.icon} {sub.plan?.toUpperCase()}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-3 text-slate-300 capitalize">{sub.provider}</td>
+                                                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300 capitalize">{sub.provider}</td>
                                                     <td className="px-4 py-3 text-right text-green-400 font-bold">{formatCurrency(sub.amount)}</td>
                                                     <td className="px-4 py-3 text-center">
                                                         <span className={`px-2 py-1 rounded-full text-xs font-bold ${
@@ -534,10 +534,10 @@ function SuperAdminPage() {
                                                             {sub.status === 'paid' ? '✅ Paid' : sub.status === 'pending' ? '⏳ Pending' : '❌ ' + sub.status}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-3 text-slate-400 text-xs">
+                                                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">
                                                         {sub.periodEnd ? `s/d ${new Date(sub.periodEnd).toLocaleDateString('id-ID')}` : '-'}
                                                     </td>
-                                                    <td className="px-4 py-3 text-slate-400 text-xs">
+                                                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">
                                                         {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString('id-ID') : '-'}
                                                     </td>
                                                 </tr>
@@ -554,49 +554,69 @@ function SuperAdminPage() {
                 {activeTab === 'settings' && (
                     <div className="space-y-6 max-w-2xl">
                         <div>
-                            <h2 className="text-xl font-bold text-white mb-1">Pengaturan Platform</h2>
-                            <p className="text-slate-400 text-sm">Konfigurasi API Keys untuk Payment Gateway level platform (untuk pembayaran langganan SaaS).</p>
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Pengaturan Platform</h2>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm">Konfigurasi API Keys untuk Payment Gateway level platform (untuk pembayaran langganan SaaS).</p>
                         </div>
 
                         {globalSettingsLoading ? (
                             <div className="flex justify-center py-12"><Icon name="sync" size={32} className="animate-spin text-indigo-400" /></div>
                         ) : (
-                            <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 space-y-6">
+                            <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-6 space-y-6">
                                 {/* Xendit */}
                                 <div>
-                                    <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
                                         <Icon name="payments" size={20} className="text-blue-400" /> Xendit (Platform)
                                     </h3>
-                                    <div className="space-y-4">
+                                <div className="space-y-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-300 mb-1.5">Secret Key</label>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Secret Key</label>
                                             <input 
                                                 type="password"
                                                 value={localSettings.xendit_platform_secret_key || ''}
                                                 onChange={e => handleSettingChange('xendit_platform_secret_key', e.target.value)}
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                                                 placeholder="xnd_production_..."
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Webhook/Verification Token</label>
+                                            <input 
+                                                type="password"
+                                                value={localSettings.xendit_platform_webhook_token || ''}
+                                                onChange={e => handleSettingChange('xendit_platform_webhook_token', e.target.value)}
+                                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                placeholder="opsional"
                                             />
                                         </div>
                                     </div>
                                 </div>
 
-                                <hr className="border-slate-700" />
+                                <hr className="border-slate-200 dark:border-slate-700" />
 
                                 {/* Midtrans */}
                                 <div>
-                                    <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
                                         <Icon name="credit_card" size={20} className="text-emerald-400" /> Midtrans (Platform)
                                     </h3>
                                     <div className="space-y-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-300 mb-1.5">Server Key</label>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Server Key</label>
                                             <input 
                                                 type="password"
                                                 value={localSettings.midtrans_platform_server_key || ''}
                                                 onChange={e => handleSettingChange('midtrans_platform_server_key', e.target.value)}
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                                                 placeholder="Mid-server-..."
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Client Key</label>
+                                            <input 
+                                                type="text"
+                                                value={localSettings.midtrans_platform_client_key || ''}
+                                                onChange={e => handleSettingChange('midtrans_platform_client_key', e.target.value)}
+                                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                placeholder="Mid-client-..."
                                             />
                                         </div>
                                     </div>
@@ -606,7 +626,7 @@ function SuperAdminPage() {
                                     <button
                                         onClick={handleSaveSettings}
                                         disabled={updateSettingsMutation.isPending}
-                                        className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center gap-2"
+                                        className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-slate-900 dark:text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center gap-2"
                                     >
                                         {updateSettingsMutation.isPending ? <Icon name="sync" size={18} className="animate-spin" /> : <Icon name="save" size={18} />}
                                         Simpan Pengaturan
@@ -642,7 +662,7 @@ function SuperAdminPage() {
                     <button
                         onClick={handlePlanSave}
                         disabled={updatePlan.isPending || selectedPlan === planModal?.currentPlan}
-                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-indigo-600 text-slate-900 dark:text-white rounded-xl font-bold hover:bg-indigo-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                         {updatePlan.isPending ? <><Icon name="sync" size={18} className="animate-spin" /> Memproses...</> : <><Icon name="save" size={18} /> Simpan Plan</>}
                     </button>
@@ -659,7 +679,7 @@ function SuperAdminPage() {
                         <input type="text" value={customDomainInput} onChange={e => setCustomDomainInput(e.target.value)}
                             placeholder="Tulis nama domain..."
                             className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm" />
-                        <p className="text-xs text-slate-400 mt-2 flex items-start gap-1">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-start gap-1">
                             <Icon name="info" size={14} className="flex-shrink-0" />
                             <span>Pastikan pengguna sudah mengarahkan CNAME / A Record domain tersebut ke proyek Cloudflare Pages ini di pengaturan DNS mereka.</span>
                         </p>
@@ -667,7 +687,7 @@ function SuperAdminPage() {
                     <button
                         onClick={handleDomainSave}
                         disabled={updateDomain.isPending}
-                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-blue-600 text-slate-900 dark:text-white rounded-xl font-bold hover:bg-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                         {updateDomain.isPending ? <><Icon name="sync" size={18} className="animate-spin" /> Memproses...</> : <><Icon name="save" size={18} /> Simpan Domain</>}
                     </button>
@@ -688,7 +708,7 @@ function SuperAdminPage() {
                             Batal
                         </button>
                         <button onClick={handleDelete} disabled={deleteStore.isPending}
-                            className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                            className="flex-1 py-3 bg-red-600 text-slate-900 dark:text-white rounded-xl font-bold hover:bg-red-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
                             {deleteStore.isPending ? <><Icon name="sync" size={18} className="animate-spin" /> Menghapus...</> : <><Icon name="delete_forever" size={18} /> Hapus Permanen</>}
                         </button>
                     </div>
