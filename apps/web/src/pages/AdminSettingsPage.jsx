@@ -361,6 +361,95 @@ function AdminSettingsPage() {
                             </div>
                         </div>
 
+                        {/* Payment Gateway */}
+                        <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+                            <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                                <Icon name="payments" size={20} />
+                                Payment Gateway
+                            </h3>
+                            <p className="text-sm text-slate-500 mb-4">
+                                Aktifkan pembayaran online agar customer bisa bayar langsung saat checkout. Jika tidak diaktifkan, pembayaran tetap melalui WhatsApp (manual).
+                            </p>
+                            <div className="space-y-4">
+                                {/* Enable Toggle */}
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                                    <div>
+                                        <p className="font-medium text-slate-900 dark:text-white">Aktifkan Payment Gateway</p>
+                                        <p className="text-xs text-slate-500">Pilihan bayar online muncul di checkout</p>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={settings.payment_gateway_enabled === 'true' || settings.payment_gateway_enabled === true}
+                                            onChange={(e) => handleChange('payment_gateway_enabled', e.target.checked ? 'true' : 'false')}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-primary"></div>
+                                    </label>
+                                </div>
+
+                                {(settings.payment_gateway_enabled === 'true' || settings.payment_gateway_enabled === true) && (
+                                    <>
+                                        {/* Provider Selection */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Provider Pembayaran</label>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {[
+                                                    { value: 'xendit', label: 'Xendit', desc: 'Invoice-based' },
+                                                    { value: 'midtrans', label: 'Midtrans', desc: 'Snap Redirect' },
+                                                ].map((prov) => {
+                                                    const isActive = settings.payment_provider === prov.value
+                                                    return (
+                                                        <button
+                                                            key={prov.value}
+                                                            type="button"
+                                                            onClick={() => handleChange('payment_provider', prov.value)}
+                                                            className={`p-4 rounded-xl border-2 text-left transition-all ${isActive
+                                                                ? 'border-primary bg-primary/5'
+                                                                : 'border-slate-200 dark:border-slate-600 hover:border-primary/50'
+                                                            }`}
+                                                        >
+                                                            <p className="font-bold text-slate-900 dark:text-white">{prov.label}</p>
+                                                            <p className="text-xs text-slate-500">{prov.desc}</p>
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* Xendit Keys */}
+                                        {settings.payment_provider === 'xendit' && (
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Xendit Secret Key</label>
+                                                    <input type="password" value={settings.xendit_secret_key || ''} onChange={(e) => handleChange('xendit_secret_key', e.target.value)} placeholder="xnd_production_..." className={inputClass} />
+                                                    <p className="text-xs text-slate-400 mt-1">Dapatkan di <a href="https://dashboard.xendit.co/settings/developers#api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Xendit Dashboard → API Keys</a></p>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Webhook Verification Token (Opsional)</label>
+                                                    <input type="password" value={settings.xendit_webhook_token || ''} onChange={(e) => handleChange('xendit_webhook_token', e.target.value)} placeholder="Token dari Xendit Dashboard" className={inputClass} />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Midtrans Keys */}
+                                        {settings.payment_provider === 'midtrans' && (
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Midtrans Server Key</label>
+                                                    <input type="password" value={settings.midtrans_server_key || ''} onChange={(e) => handleChange('midtrans_server_key', e.target.value)} placeholder="Mid-server-..." className={inputClass} />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Midtrans Client Key</label>
+                                                    <input type="text" value={settings.midtrans_client_key || ''} onChange={(e) => handleChange('midtrans_client_key', e.target.value)} placeholder="Mid-client-..." className={inputClass} />
+                                                </div>
+                                                <p className="text-xs text-slate-400">Dapatkan di <a href="https://dashboard.midtrans.com/settings/config_info" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Midtrans Dashboard → Configuration</a></p>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
                         {/* Theme */}
                         <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 p-6">
                             <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">

@@ -233,6 +233,8 @@ export const orders = sqliteTable('orders', {
     uniqueCode: integer('unique_code').default(0),
     total: integer('total').notNull(),
     status: text('status').notNull().default('pending'), // pending, processing, on_delivery, completed, cancelled
+    paymentMethod: text('payment_method').default('whatsapp'), // 'whatsapp' | 'xendit' | 'midtrans'
+    paymentStatus: text('payment_status').default('unpaid'), // 'unpaid' | 'paid' | 'expired'
     whatsappSent: integer('whatsapp_sent', { mode: 'boolean' }).default(false),
     createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(now),
     updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(now),
@@ -327,7 +329,63 @@ export const storeSettings = sqliteTable('store_settings', {
     unqKeyStore: unique().on(table.key, table.storeId),
 }));
 
+// ============================================
+// PAYMENTS TABLE (Store → Customer)
+// ============================================
+export const payments = sqliteTable('payments', {
+    id: text('id').primaryKey().$defaultFn(generateId),
+    storeId: text('store_id').references(() => stores.id, { onDelete: 'cascade' }).notNull(),
+    orderId: text('order_id').references(() => orders.id, { onDelete: 'cascade' }).notNull(),
+    provider: text('provider').notNull(), // 'xendit' | 'midtrans'
+    externalId: text('external_id'), // invoice_id or transaction_id from provider
+    paymentUrl: text('payment_url'),
+    amount: integer('amount').notNull(),
+    status: text('status').notNull().default('pending'), // 'pending' | 'paid' | 'expired' | 'failed'
+    paidAt: integer('paid_at', { mode: 'timestamp' }),
+    rawResponse: text('raw_response'), // JSON string
+    createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(now),
+});
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+    store: one(stores, {
+        fields: [payments.storeId],
+        references: [stores.id],
+    }),
+    order: one(orders, {
+        fields: [payments.orderId],
+        references: [orders.id],
+    }),
+}));
+
+// ============================================
+// SUBSCRIPTIONS TABLE (Store → Superadmin)
+// ============================================
+export const subscriptions = sqliteTable('subscriptions', {
+    id: text('id').primaryKey().$defaultFn(generateId),
+    storeId: text('store_id').references(() => stores.id, { onDelete: 'cascade' }).notNull(),
+    plan: text('plan').notNull(), // 'starter' | 'pro'
+    provider: text('provider').notNull(), // 'xendit' | 'midtrans' | 'manual'
+    externalId: text('external_id'),
+    paymentUrl: text('payment_url'),
+    amount: integer('amount').notNull(),
+    status: text('status').notNull().default('pending'), // 'pending' | 'paid' | 'expired'
+    periodStart: integer('period_start', { mode: 'timestamp' }),
+    periodEnd: integer('period_end', { mode: 'timestamp' }),
+    paidAt: integer('paid_at', { mode: 'timestamp' }),
+    rawResponse: text('raw_response'),
+    createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(now),
+});
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+    store: one(stores, {
+        fields: [subscriptions.storeId],
+        references: [stores.id],
+    }),
+}));
+
 export type Store = typeof stores.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type CourierDelivery = typeof courierDeliveries.$inferSelect;
+export type Payment = typeof payments.$inferSelect;
+export type Subscription = typeof subscriptions.$inferSelect;

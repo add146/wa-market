@@ -202,3 +202,10 @@ export const rajaongkirApi = {
     calculateCost: (data) => api.post('/shipping/calculate', data),
     getCouriers: () => api.get('/shipping/couriers'),
 };
+
+// Payment API
+export const paymentApi = {
+    create: (orderId, provider) => api.post('/payment/create', { orderId, provider }),
+    status: (orderId) => api.get(`/payment/status/${orderId}`),
+};
+

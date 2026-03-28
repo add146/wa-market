@@ -15,6 +15,13 @@
       "when": 1774670914406,
       "tag": "0001_mute_devos",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1774672674486,
+      "tag": "0002_zippy_blink",
+      "breakpoints": true
     }
   ]
 }

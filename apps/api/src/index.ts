@@ -13,6 +13,8 @@ import ordersRouter from './routes/orders';
 import productsRouter from './routes/products';
 import categoriesRouter from './routes/categories';
 import courierDeliveriesRouter from './routes/couriers';
+import paymentRouter from './routes/payment';
+import subscriptionRouter from './routes/subscription';
 
 export type Env = {
   DB: D1Database;
@@ -50,6 +52,7 @@ app.use('*', cors({
 app.route('/api/stores', storesRouter);
 app.route('/api/superadmin', superadminRouter);
 app.route('/api/resolver', resolverRouter);
+app.route('/api/subscription', subscriptionRouter);
 
 // Global Upload Route
 app.route('/api/upload', uploadRouter);
@@ -63,6 +66,7 @@ app.route('/api/s/:slug/orders', ordersRouter);
 app.route('/api/s/:slug/products', productsRouter);
 app.route('/api/s/:slug/categories', categoriesRouter);
 app.route('/api/s/:slug/couriers', courierDeliveriesRouter);
+app.route('/api/s/:slug/payment', paymentRouter);
 
 // Serve R2 files
 app.get('/uploads/:filename', async (c) => {

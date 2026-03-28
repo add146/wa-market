@@ -11,6 +11,7 @@ import { Navigate } from 'react-router-dom'
 const LandingPage = lazy(() => import('./pages/saas/LandingPage'))
 const SuperAdminPage = lazy(() => import('./pages/saas/SuperAdminPage'))
 const SuperAdminLoginPage = lazy(() => import('./pages/saas/SuperAdminLoginPage'))
+const SubscriptionPage = lazy(() => import('./pages/saas/SubscriptionPage'))
 
 // Lazy load pages for better performance
 const HomePage = lazy(() => import('./pages/HomePage'))
@@ -23,6 +24,7 @@ const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const UnauthorizedPage = lazy(() => import('./pages/UnauthorizedPage'))
 const MyOrdersPage = lazy(() => import('./pages/MyOrdersPage'))
 const CourierDashboardPage = lazy(() => import('./pages/CourierDashboardPage'))
+const PaymentStatusPage = lazy(() => import('./pages/PaymentStatusPage'))
 
 // Admin pages
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'))
@@ -212,6 +214,16 @@ function StorefrontApp() {
                 }
             />
 
+            {/* Payment Status */}
+            <Route
+                path="/payment-status/:orderId"
+                element={
+                    <Suspense fallback={<LoadingState />}>
+                        <PaymentStatusPage />
+                    </Suspense>
+                }
+            />
+
             {/* Other pages use MainLayout */}
             <Route
                 path="*"
@@ -255,6 +267,11 @@ function App({ slug }) {
             <Route path="/" element={
                  <Suspense fallback={<LoadingState />}>
                     <LandingPage />
+                 </Suspense>
+            } />
+            <Route path="/subscription" element={
+                 <Suspense fallback={<LoadingState />}>
+                    <SubscriptionPage />
                  </Suspense>
             } />
             <Route path="*" element={<Navigate to="/" replace />} />

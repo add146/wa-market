@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { setCookie, deleteCookie, getCookie } from 'hono/cookie';
 import { getDb } from '../db';
-import { stores, users, orders, products, sessions, courierDeliveries } from '../db/schema';
+import { stores, users, orders, products, sessions, courierDeliveries, subscriptions } from '../db/schema';
 import { eq, and, sql, count } from 'drizzle-orm';
 import { authMiddleware, superadminMiddleware, createSession, deleteSession, verifyPassword } from '../middleware/auth';
 import type { Env } from '../index';
@@ -273,6 +273,68 @@ router.delete('/stores/:id', authMiddleware, superadminMiddleware, async (c) => 
     } catch (e) {
         console.error('Delete store error:', e);
         return c.json({ error: 'Failed to delete store' }, 500);
+    }
+});
+
+// ─────────────────────────────────────
+// SUBSCRIPTIONS
+// ─────────────────────────────────────
+
+/**
+ * GET /api/superadmin/subscriptions
+ * List all subscriptions with store info
+ */
+router.get('/subscriptions', authMiddleware, superadminMiddleware, async (c) => {
+    try {
+        const db = getDb(c.env);
+        const allSubs = await db.select().from(subscriptions).orderBy(sql`${subscriptions.createdAt} DESC`);
+        
+        // Enrich with store name
+        const enriched = await Promise.all(allSubs.map(async (sub) => {
+            const [store] = await db.select({ name: stores.name, slug: stores.slug }).from(stores).where(eq(stores.id, sub.storeId));
+            return {
+                ...sub,
+                storeName: store?.name || 'Unknown',
+                storeSlug: store?.slug || '',
+            };
+        }));
+        
+        return c.json(enriched);
+    } catch (e) {
+        console.error('List subscriptions error:', e);
+        return c.json({ error: 'Failed' }, 500);
+    }
+});
+
+/**
+ * PATCH /api/superadmin/subscriptions/:id/approve
+ * Manually approve a subscription (for manual payment)
+ */
+router.patch('/subscriptions/:id/approve', authMiddleware, superadminMiddleware, async (c) => {
+    try {
+        const db = getDb(c.env);
+        const subId = c.req.param('id') as string;
+
+        const [sub] = await db.select().from(subscriptions).where(eq(subscriptions.id, subId));
+        if (!sub) return c.json({ error: 'Subscription not found' }, 404);
+
+        const now = new Date();
+        const oneYearLater = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+
+        await db.update(subscriptions).set({
+            status: 'paid',
+            paidAt: now,
+            periodStart: now,
+            periodEnd: oneYearLater,
+        }).where(eq(subscriptions.id, subId));
+
+        // Upgrade store plan
+        await db.update(stores).set({ plan: sub.plan }).where(eq(stores.id, sub.storeId));
+
+        return c.json({ message: 'Subscription approved and store plan upgraded' });
+    } catch (e) {
+        console.error('Approve subscription error:', e);
+        return c.json({ error: 'Failed' }, 500);
     }
 });
 

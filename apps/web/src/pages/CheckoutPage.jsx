@@ -8,7 +8,7 @@ import {
 } from '../components/organisms'
 import { Icon } from '../components/atoms'
 import { useCreateOrder, useValidateCoupon, useSetting } from '../hooks'
-import api, { rajaongkirApi, productsApi } from '../api/client'
+import api, { rajaongkirApi, productsApi, paymentApi } from '../api/client'
 import { useCart, useAuth } from '../context'
 
 /**
@@ -25,6 +25,11 @@ function CheckoutPage() {
 
     // Check if RajaOngkir is enabled
     const isRajaOngkirEnabled = rajaongkirEnabled === 'true' || rajaongkirEnabled === true
+
+    // Payment gateway config
+    const { data: paymentGatewayEnabled } = useSetting('payment_gateway_enabled')
+    const { data: paymentProvider } = useSetting('payment_provider')
+    const isPaymentGatewayEnabled = paymentGatewayEnabled === 'true' || paymentGatewayEnabled === true
 
     // Order mutation
     const createOrder = useCreateOrder()
@@ -70,6 +75,9 @@ function CheckoutPage() {
 
     // Error state
     const [submitError, setSubmitError] = useState('')
+
+    // Payment method state
+    const [paymentMethod, setPaymentMethod] = useState('whatsapp') // 'whatsapp' | 'xendit' | 'midtrans'
 
     // Shipping discount state
     const [shippingDiscountOptions, setShippingDiscountOptions] = useState([])
@@ -316,13 +324,35 @@ function CheckoutPage() {
 
             const result = await createOrder.mutateAsync(orderData)
 
-            if (result.whatsappUrl) {
-                window.open(result.whatsappUrl, '_blank')
+            // Handle payment based on selected method
+            if (paymentMethod === 'whatsapp') {
+                // Traditional WhatsApp flow
+                if (result.whatsappUrl) {
+                    window.open(result.whatsappUrl, '_blank')
+                }
+                clearCart()
+                alert(`✅ Pesanan berhasil dibuat!\n\nNo. Order: ${result.order.orderNumber}\nTotal: Rp ${result.order.total.toLocaleString('id-ID')}\n\nSilakan lanjutkan pembayaran via WhatsApp`)
+                navigate('/')
+            } else {
+                // Online payment (Xendit / Midtrans)
+                try {
+                    const payResult = await paymentApi.create(result.order.id, paymentMethod)
+                    const payData = payResult.data
+                    if (payData.paymentUrl) {
+                        clearCart()
+                        // Redirect to payment gateway
+                        window.location.href = payData.paymentUrl
+                    } else {
+                        clearCart()
+                        navigate(`/payment-status/${result.order.id}`)
+                    }
+                } catch (payErr) {
+                    console.error('Payment create error:', payErr)
+                    // Order already created, redirect to status page
+                    clearCart()
+                    navigate(`/payment-status/${result.order.id}`)
+                }
             }
-
-            clearCart()
-            alert(`✅ Pesanan berhasil dibuat!\n\nNo. Order: ${result.order.orderNumber}\nTotal: Rp ${result.order.total.toLocaleString('id-ID')}\n\nSilakan lanjutkan pembayaran via WhatsApp`)
-            navigate('/')
         } catch (error) {
             console.error('Checkout error:', error, error.details)
             // Show more detailed error for debugging
@@ -547,6 +577,72 @@ function CheckoutPage() {
                         error={couponError}
                         isLoading={validateCoupon.isPending}
                     />
+
+                    {/* Payment Method Selection */}
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                            <Icon name="payments" size={20} className="text-primary" />
+                            Metode Pembayaran
+                        </h3>
+                        <div className="space-y-3">
+                            {/* WhatsApp (always available) */}
+                            <button
+                                type="button"
+                                onClick={() => setPaymentMethod('whatsapp')}
+                                className={`w-full p-4 rounded-xl border-2 transition-all text-left ${paymentMethod === 'whatsapp'
+                                    ? 'border-primary bg-primary/5'
+                                    : 'border-slate-200 dark:border-slate-600 hover:border-primary/50'
+                                }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <span className="text-2xl">💬</span>
+                                    <div>
+                                        <p className="font-semibold text-slate-900 dark:text-white">WhatsApp (Manual)</p>
+                                        <p className="text-sm text-slate-500">Kirim nota pesanan ke admin via WhatsApp</p>
+                                    </div>
+                                </div>
+                            </button>
+
+                            {/* Online Payment (if enabled) */}
+                            {isPaymentGatewayEnabled && paymentProvider === 'xendit' && (
+                                <button
+                                    type="button"
+                                    onClick={() => setPaymentMethod('xendit')}
+                                    className={`w-full p-4 rounded-xl border-2 transition-all text-left ${paymentMethod === 'xendit'
+                                        ? 'border-primary bg-primary/5'
+                                        : 'border-slate-200 dark:border-slate-600 hover:border-primary/50'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-2xl">💳</span>
+                                        <div>
+                                            <p className="font-semibold text-slate-900 dark:text-white">Xendit</p>
+                                            <p className="text-sm text-slate-500">Transfer Bank, QRIS, E-Wallet, Kartu Kredit</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            )}
+
+                            {isPaymentGatewayEnabled && paymentProvider === 'midtrans' && (
+                                <button
+                                    type="button"
+                                    onClick={() => setPaymentMethod('midtrans')}
+                                    className={`w-full p-4 rounded-xl border-2 transition-all text-left ${paymentMethod === 'midtrans'
+                                        ? 'border-primary bg-primary/5'
+                                        : 'border-slate-200 dark:border-slate-600 hover:border-primary/50'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-2xl">💳</span>
+                                        <div>
+                                            <p className="font-semibold text-slate-900 dark:text-white">Midtrans</p>
+                                            <p className="text-sm text-slate-500">Transfer Bank, GoPay, ShopeePay, Kartu Kredit</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            )}
+                        </div>
+                    </div>
 
                     {submitError && (
                         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">

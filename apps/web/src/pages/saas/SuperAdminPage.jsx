@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icon, Modal } from '../../components/atoms'
 import {
@@ -11,6 +11,9 @@ import {
     useToggleStore,
     useDeleteStore,
 } from '../../hooks'
+import axios from 'axios'
+
+const SA_API = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
 // ─── Plan Config ─────────────────────
 const PLAN_CONFIG = {
@@ -77,6 +80,29 @@ function SuperAdminPage() {
     const [customDomainInput, setCustomDomainInput] = useState('')
     const [filterPlan, setFilterPlan] = useState('all')
     const [filterStatus, setFilterStatus] = useState('all')
+    const [allSubscriptions, setAllSubscriptions] = useState([])
+    const [subsLoading, setSubsLoading] = useState(false)
+
+    // Fetch all subscriptions when tab is active
+    useEffect(() => {
+        if (activeTab === 'subscriptions') {
+            const fetchSubs = async () => {
+                setSubsLoading(true)
+                try {
+                    const token = localStorage.getItem('sa_token')
+                    const res = await axios.get(`${SA_API}/superadmin/subscriptions`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    })
+                    setAllSubscriptions(res.data || [])
+                } catch (err) {
+                    console.error('Failed to fetch subscriptions:', err)
+                } finally {
+                    setSubsLoading(false)
+                }
+            }
+            fetchSubs()
+        }
+    }, [activeTab])
 
     // Auth guard
     if (sessionLoading) {
@@ -129,6 +155,7 @@ function SuperAdminPage() {
     const tabs = [
         { id: 'overview', label: 'Overview', icon: 'dashboard' },
         { id: 'stores',   label: 'Kelola Toko', icon: 'storefront' },
+        { id: 'subscriptions', label: 'Langganan', icon: 'credit_card' },
         { id: 'plans',    label: 'Paket & Fitur', icon: 'workspace_premium' },
     ]
 
@@ -399,6 +426,74 @@ function SuperAdminPage() {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* ─── Tab: Subscriptions ─── */}
+                {activeTab === 'subscriptions' && (
+                    <div className="space-y-8">
+                        <div>
+                            <h2 className="text-xl font-bold text-white mb-1">Riwayat Langganan</h2>
+                            <p className="text-slate-400 text-sm">Semua pembayaran subscription dari toko-toko.</p>
+                        </div>
+
+                        {subsLoading ? (
+                            <div className="text-center py-12">
+                                <Icon name="sync" size={32} className="animate-spin text-indigo-400 mx-auto" />
+                            </div>
+                        ) : allSubscriptions.length === 0 ? (
+                            <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-12 text-center">
+                                <Icon name="credit_card_off" size={48} className="text-slate-600 mx-auto mb-3" />
+                                <p className="text-slate-400">Belum ada langganan.</p>
+                            </div>
+                        ) : (
+                            <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b border-slate-700/50">
+                                                <th className="px-4 py-3 text-left text-slate-400 text-xs uppercase">Toko</th>
+                                                <th className="px-4 py-3 text-left text-slate-400 text-xs uppercase">Plan</th>
+                                                <th className="px-4 py-3 text-left text-slate-400 text-xs uppercase">Provider</th>
+                                                <th className="px-4 py-3 text-right text-slate-400 text-xs uppercase">Nominal</th>
+                                                <th className="px-4 py-3 text-center text-slate-400 text-xs uppercase">Status</th>
+                                                <th className="px-4 py-3 text-left text-slate-400 text-xs uppercase">Berlaku</th>
+                                                <th className="px-4 py-3 text-left text-slate-400 text-xs uppercase">Tanggal</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {allSubscriptions.map((sub) => (
+                                                <tr key={sub.id} className="border-b border-slate-700/30 hover:bg-slate-700/20">
+                                                    <td className="px-4 py-3 text-white font-medium">{sub.storeName || sub.storeId?.slice(0,8)}</td>
+                                                    <td className="px-4 py-3">
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${PLAN_CONFIG[sub.plan]?.color || 'bg-slate-700 text-slate-300'}`}>
+                                                            {PLAN_CONFIG[sub.plan]?.icon} {sub.plan?.toUpperCase()}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-slate-300 capitalize">{sub.provider}</td>
+                                                    <td className="px-4 py-3 text-right text-green-400 font-bold">{formatCurrency(sub.amount)}</td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                                            sub.status === 'paid' ? 'bg-green-500/20 text-green-400' :
+                                                            sub.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
+                                                            'bg-red-500/20 text-red-400'
+                                                        }`}>
+                                                            {sub.status === 'paid' ? '✅ Paid' : sub.status === 'pending' ? '⏳ Pending' : '❌ ' + sub.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-slate-400 text-xs">
+                                                        {sub.periodEnd ? `s/d ${new Date(sub.periodEnd).toLocaleDateString('id-ID')}` : '-'}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-slate-400 text-xs">
+                                                        {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString('id-ID') : '-'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </main>
