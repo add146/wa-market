@@ -243,7 +243,7 @@ function SuperAdminPage() {
 
             {/* Tab Navigation */}
             <div className="bg-white/50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-1 overflow-x-auto">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-1 overflow-x-auto no-scrollbar">
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
@@ -272,7 +272,7 @@ function SuperAdminPage() {
                         {statsLoading ? (
                             <div className="flex justify-center py-12"><Icon name="sync" size={32} className="animate-spin text-indigo-400" /></div>
                         ) : (
-                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                                 <StatCard icon="storefront"   label="Total Toko"     value={stats?.totalStores || 0}  color="blue" />
                                 <StatCard icon="check_circle" label="Toko Aktif"     value={stats?.activeStores || 0} color="green" />
                                 <StatCard icon="group_add"    label="Baru (30 hari)" value={stats?.newStoresThisMonth || 0} color="purple" />
@@ -429,7 +429,8 @@ function SuperAdminPage() {
                         </div>
 
                         <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl overflow-hidden">
-                            <table className="w-full text-sm">
+                            <div className="overflow-x-auto no-scrollbar">
+                            <table className="w-full text-sm min-w-[600px]">
                                 <thead>
                                     <tr className="border-b border-slate-200 dark:border-slate-700/50">
                                         <th className="px-6 py-4 text-left text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold">Fitur</th>
@@ -455,6 +456,7 @@ function SuperAdminPage() {
                                     ))}
                                 </tbody>
                             </table>
+                            </div>
                         </div>
 
                         {/* Account Info */}

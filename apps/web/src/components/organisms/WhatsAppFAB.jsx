@@ -15,7 +15,7 @@ function WhatsAppFAB({ phoneNumber = '', message = 'Halo, saya tertarik dengan p
     return (
         <button
             onClick={handleClick}
-            className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-110 hover:bg-[#20bd5a] focus:outline-none focus:ring-4 focus:ring-[#25d366]/30 md:bottom-6"
+            className="fixed bottom-24 md:bottom-8 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-110 hover:bg-[#20bd5a] focus:outline-none focus:ring-4 focus:ring-[#25d366]/30"
             aria-label="Chat via WhatsApp"
         >
             <Icon name="chat" size={32} />
