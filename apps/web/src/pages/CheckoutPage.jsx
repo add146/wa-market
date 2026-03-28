@@ -84,6 +84,14 @@ function CheckoutPage() {
     const [fixedCostOptions, setFixedCostOptions] = useState([])
     const [shippingDiscount, setShippingDiscount] = useState(0)
 
+    // Shipping type: 'own_courier' (kurir sendiri) or 'expedition' (jasa paket)
+    const [shippingType, setShippingType] = useState('expedition')
+
+    // GPS Location state (for own courier)
+    const [gpsLocation, setGpsLocation] = useState(null) // { lat, lng }
+    const [gpsLoading, setGpsLoading] = useState(false)
+    const [gpsError, setGpsError] = useState('')
+
     // Enriched cart items with fresh weights from API
     const [productWeights, setProductWeights] = useState({})
 
@@ -126,8 +134,8 @@ function CheckoutPage() {
         return sum + (weight * item.quantity)
     }, 0)
 
-    // Shipping cost from selected courier
-    const shippingCost = selectedCourier?.cost || 0
+    // Shipping cost from selected courier (own courier = free)
+    const shippingCost = shippingType === 'own_courier' ? 0 : (selectedCourier?.cost || 0)
     const uniqueCode = 123
     const total = subtotal - couponDiscount + shippingCost - shippingDiscount + uniqueCode
 
@@ -291,15 +299,23 @@ function CheckoutPage() {
             return
         }
 
-        if (!selectedCourier) {
-            setSubmitError('Harap pilih kurir pengiriman')
-            return
-        }
-
-        // Only require destination for RajaOngkir couriers (not fixed cost)
-        if (!selectedCourier.isFixed && !selectedDestination) {
-            setSubmitError('Harap pilih tujuan pengiriman untuk kurir RajaOngkir')
-            return
+        // Validation differs by shipping type
+        if (shippingType === 'own_courier') {
+            // For own courier, GPS or address is enough, no courier selection needed
+            if (!gpsLocation && !address) {
+                setSubmitError('Harap bagikan lokasi GPS atau isi alamat lengkap untuk kurir sendiri')
+                return
+            }
+        } else {
+            if (!selectedCourier) {
+                setSubmitError('Harap pilih kurir pengiriman')
+                return
+            }
+            // Only require destination for RajaOngkir couriers (not fixed cost)
+            if (!selectedCourier.isFixed && !selectedDestination) {
+                setSubmitError('Harap pilih tujuan pengiriman untuk kurir RajaOngkir')
+                return
+            }
         }
 
         try {
@@ -310,9 +326,14 @@ function CheckoutPage() {
                 city: selectedDestination?.city_name || '',
                 district: selectedDestination?.subdistrict_name || '',
                 address,
-                shippingOptionId: selectedCourier.id,
-                courierName: `${selectedCourier.name} - ${selectedCourier.service}`,
-                shippingCost: selectedCourier.cost,
+                shippingType,
+                latitude: gpsLocation?.lat?.toString() || '',
+                longitude: gpsLocation?.lng?.toString() || '',
+                shippingOptionId: selectedCourier?.id || null,
+                courierName: shippingType === 'own_courier'
+                    ? 'Kurir Toko'
+                    : `${selectedCourier?.name || 'Manual'} - ${selectedCourier?.service || ''}`,
+                shippingCost: shippingType === 'own_courier' ? 0 : (selectedCourier?.cost || 0),
                 couponCode: appliedCoupon,
                 guestPhone: `62${phone}`,
                 items: cartItems.map(item => ({
@@ -476,6 +497,141 @@ function CheckoutPage() {
                         </div>
                     </div>
 
+                    {/* ─── Shipping Type Toggle ─── */}
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                            <Icon name="local_shipping" size={20} className="text-primary" />
+                            Metode Pengiriman
+                        </h3>
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShippingType('own_courier')
+                                    setSelectedCourier(null)
+                                }}
+                                className={`p-4 rounded-xl border-2 transition-all text-left ${shippingType === 'own_courier'
+                                    ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                                    : 'border-slate-200 dark:border-slate-600 hover:border-primary/50'
+                                }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <span className="text-2xl">🛵</span>
+                                    <div>
+                                        <p className="font-bold text-slate-900 dark:text-white">Kurir Toko</p>
+                                        <p className="text-xs text-slate-500">Diantar kurir toko ke lokasi Anda</p>
+                                    </div>
+                                </div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShippingType('expedition')
+                                    setGpsLocation(null)
+                                    setGpsError('')
+                                }}
+                                className={`p-4 rounded-xl border-2 transition-all text-left ${shippingType === 'expedition'
+                                    ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                                    : 'border-slate-200 dark:border-slate-600 hover:border-primary/50'
+                                }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <span className="text-2xl">📦</span>
+                                    <div>
+                                        <p className="font-bold text-slate-900 dark:text-white">Jasa Paket</p>
+                                        <p className="text-xs text-slate-500">JNE, J&T, SiCepat, dll</p>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+
+                        {/* ─── Own Courier: Share Location ─── */}
+                        {shippingType === 'own_courier' && (
+                            <div className="space-y-4 border-t border-slate-200 dark:border-slate-700 pt-4">
+                                <p className="text-sm text-slate-500">
+                                    Bagikan lokasi GPS Anda agar kurir toko bisa menemukan alamat dengan mudah. Ongkir akan ditentukan oleh toko.
+                                </p>
+
+                                {/* Share Location Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!navigator.geolocation) {
+                                            setGpsError('Browser Anda tidak mendukung GPS.')
+                                            return
+                                        }
+                                        setGpsLoading(true)
+                                        setGpsError('')
+                                        navigator.geolocation.getCurrentPosition(
+                                            (position) => {
+                                                setGpsLocation({
+                                                    lat: position.coords.latitude,
+                                                    lng: position.coords.longitude,
+                                                })
+                                                setGpsLoading(false)
+                                            },
+                                            (err) => {
+                                                console.error('GPS error:', err)
+                                                setGpsError('Gagal mendapatkan lokasi. Pastikan GPS aktif dan izinkan akses lokasi.')
+                                                setGpsLoading(false)
+                                            },
+                                            { enableHighAccuracy: true, timeout: 15000 }
+                                        )
+                                    }}
+                                    disabled={gpsLoading}
+                                    className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+                                >
+                                    <Icon name="my_location" size={20} />
+                                    {gpsLoading ? 'Mengambil lokasi...' : gpsLocation ? '📍 Perbarui Lokasi' : '📍 Bagikan Lokasi GPS'}
+                                </button>
+
+                                {gpsError && (
+                                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                                        <p className="text-red-600 dark:text-red-400 text-sm flex items-center gap-2">
+                                            <Icon name="error" size={16} />
+                                            {gpsError}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* GPS Result */}
+                                {gpsLocation && (
+                                    <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl">
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                <Icon name="location_on" size={22} className="text-green-600 dark:text-green-400" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm font-semibold text-green-700 dark:text-green-400">Lokasi berhasil didapatkan ✅</p>
+                                                <p className="text-xs text-green-600 dark:text-green-500 font-mono mt-0.5">
+                                                    {gpsLocation.lat.toFixed(6)}, {gpsLocation.lng.toFixed(6)}
+                                                </p>
+                                                <a
+                                                    href={`https://www.google.com/maps?q=${gpsLocation.lat},${gpsLocation.lng}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1 inline-flex items-center gap-1"
+                                                >
+                                                    <Icon name="open_in_new" size={12} /> Lihat di Google Maps
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/50 rounded-xl">
+                                    <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
+                                        <Icon name="info" size={14} className="mt-0.5 flex-shrink-0" />
+                                        <span>Ongkos kirim kurir toko akan dihubungi terpisah oleh admin toko via WhatsApp setelah pesanan dibuat.</span>
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ─── Expedition Shipping Options ─── */}
+                    {shippingType === 'expedition' && (
+                        <>
                     {/* Fixed Cost Shipping Options */}
                     {fixedCostOptions.length > 0 && (
                         <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
@@ -563,6 +719,8 @@ function CheckoutPage() {
                                 {shippingError}
                             </p>
                         </div>
+                    )}
+                        </>
                     )}
 
                     <CouponSection

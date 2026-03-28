@@ -223,6 +223,9 @@ export const orders = sqliteTable('orders', {
     city: text('city').notNull(),
     district: text('district').notNull(),
     address: text('address').notNull(),
+    shippingType: text('shipping_type').default('expedition'), // 'own_courier' | 'expedition'
+    latitude: text('latitude'), // GPS lat for own courier
+    longitude: text('longitude'), // GPS lng for own courier
     shippingOptionId: text('shipping_option_id').references(() => shippingOptions.id),
     courierName: text('courier_name').notNull(),
     shippingCost: integer('shipping_cost').notNull(),

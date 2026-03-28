@@ -445,6 +445,18 @@ function AdminOrdersPage() {
                                 <p><strong>Kecamatan:</strong> {selectedOrder.district}</p>
                                 <p><strong>Kota:</strong> {selectedOrder.city}</p>
                                 <p><strong>Provinsi:</strong> {selectedOrder.province}</p>
+                                {/* GPS Location Link */}
+                                {selectedOrder.latitude && selectedOrder.longitude && (
+                                    <a
+                                        href={`https://www.google.com/maps?q=${selectedOrder.latitude},${selectedOrder.longitude}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-lg text-xs font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                                    >
+                                        <Icon name="location_on" size={14} />
+                                        📍 Buka Lokasi GPS di Google Maps
+                                    </a>
+                                )}
                             </div>
                         </div>
 
@@ -462,6 +474,16 @@ function AdminOrdersPage() {
                                 )}
                             </div>
                             <div className="text-sm space-y-1 text-slate-700 dark:text-slate-300">
+                                <p>
+                                    <strong>Tipe:</strong>{' '}
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                        selectedOrder.shippingType === 'own_courier'
+                                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                    }`}>
+                                        {selectedOrder.shippingType === 'own_courier' ? '🛵 Kurir Toko' : '📦 Jasa Paket'}
+                                    </span>
+                                </p>
                                 <p><strong>Penyedia / Kurir:</strong> {selectedOrder.courierName}</p>
                                 <p><strong>Ongkir:</strong> Rp {(selectedOrder.shippingCost || 0).toLocaleString('id-ID')}</p>
                             </div>
