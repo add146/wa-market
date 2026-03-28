@@ -109,7 +109,7 @@ router.post('/', optionalAuthMiddleware, async (c) => {
         let whatsappUrl = '';
         let whatsappSent = false;
 
-        const messageText = formatOrderMessage(insertedOrder, itemsToInsert, storeName);
+        const messageText = formatOrderMessage(insertedOrder, itemsToInsert, storeName, body.paymentMethod || 'manual');
 
         if (kasirPhone) {
             if (wahaUrl && wahaUrl.trim() !== '') {

@@ -46,10 +46,10 @@ router.post('/admin', authMiddleware, adminMiddleware, async (c) => {
         const db = getDb(c.env);
         const store = c.get('store');
         const body = await c.req.json();
-        const { phone, password, name } = body;
+        const { phone, name } = body;
         
-        if (!phone || !password || !name) {
-            return c.json({ error: 'Missing fields' }, 400);
+        if (!phone || !name) {
+            return c.json({ error: 'Name and phone required' }, 400);
         }
 
         // Clean phone
@@ -66,7 +66,9 @@ router.post('/admin', authMiddleware, adminMiddleware, async (c) => {
             return c.json({ error: 'Phone already registered in this store' }, 409);
         }
 
-        const hashedPassword = await hashPassword(password);
+        // Generate dummy password since couriers don't login
+        const dummyPassword = Math.random().toString(36).slice(-8);
+        const hashedPassword = await hashPassword(dummyPassword);
         const [courier] = await db.insert(users).values({
             storeId: store.id,
             phone: cleanPhone,

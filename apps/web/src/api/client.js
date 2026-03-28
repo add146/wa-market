@@ -109,13 +109,13 @@ export const ordersApi = {
 
 export const couriersApi = {
     // Admin
-    getAll: () => api.get('/admin/couriers'),
-    create: (data) => api.post('/admin/couriers', data),
-    delete: (id) => api.delete(`/admin/couriers/${id}`),
+    getAll: () => api.get('/couriers/admin'),
+    create: (data) => api.post('/couriers/admin', data),
+    delete: (id) => api.delete(`/couriers/admin/${id}`),
     // Courier Dashboard
-    getDeliveries: (params) => api.get('/courier/deliveries', { params }),
-    getDeliveryById: (id) => api.get(`/courier/deliveries/${id}`),
-    updateDeliveryStatus: (id, data) => api.patch(`/courier/deliveries/${id}`, data),
+    getDeliveries: (params) => api.get('/couriers/deliveries', { params }),
+    getDeliveryById: (id) => api.get(`/couriers/deliveries/${id}`),
+    updateDeliveryStatus: (id, data) => api.patch(`/couriers/deliveries/${id}`, data),
 };
 
 export const cartApi = {

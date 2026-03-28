@@ -4,7 +4,7 @@ import { orderItems } from '../db/schema';
 export type OrderItem = typeof orderItems.$inferSelect;
 
 // Format order data into WhatsApp message
-export function formatOrderMessage(order: Order, items: OrderItem[], storeName?: string): string {
+export function formatOrderMessage(order: Order, items: OrderItem[], storeName?: string, paymentMethod: string = 'manual'): string {
     const store = storeName || 'TokoIndo';
     const itemsList = items
         .map((item, index) => {
@@ -13,10 +13,26 @@ export function formatOrderMessage(order: Order, items: OrderItem[], storeName?:
         })
         .join('\n');
 
+    const paymentTypeInfo = paymentMethod === 'cod' 
+        ? `\nMETODE: BAYAR DI TEMPAT (COD)`
+        : '';
+
+    let instructions = `
+📝 *Instruksi Pembayaran Manual:*
+Mohon selesaikan pembayaran sesuai *TOTAL BAYAR* ke rekening Admin.
+Setelah transfer, wajib balas pesan ini dengan melampirkan *BUKTI TRANSFER (Foto Nota)* agar pesanan segera diproses.`;
+
+    if (paymentMethod === 'cod') {
+        instructions = `
+📝 *Instruksi Bayar di Tempat (COD):*
+Pesanan Anda akan segera kami proses dan kirimkan menggunakan kurir toko.
+Mohon siapkan uang tunai sesuai *TOTAL BAYAR* saat pesanan tiba di alamat Anda.`;
+    }
+
     const message = `
 ━━━━━━━━━━━━━━━━━━━━
 🧾 *NOTA PESANAN*
-*No. Order: ${order.orderNumber}*
+*No. Order: ${order.orderNumber}*${paymentTypeInfo}
 ━━━━━━━━━━━━━━━━━━━━
 
 🛒 *PESANAN BARU ${store}*
@@ -47,12 +63,9 @@ ${order.uniqueCode ? `Kode Unik: +Rp ${order.uniqueCode}` : ''}
 ━━━━━━━━━━━━━━━━━━━━
 
 📅 Tanggal: ${order.createdAt ? new Date(order.createdAt).toLocaleString('id-ID') : '-'}
+${instructions}
 
-📝 *Instruksi Pembayaran Manual:*
-Mohon selesaikan pembayaran sesuai *TOTAL BAYAR* ke rekening Admin.
-Setelah transfer, wajib balas pesan ini dengan melampirkan *BUKTI TRANSFER (Foto Nota)* agar pesanan segera diproses.
-
-💡 *Simpan No. Order ini untuk konfirmasi pembayaran*
+💡 *Simpan No. Order ini untuk konfirmasi pesanan*
 `.trim();
 
     return message;

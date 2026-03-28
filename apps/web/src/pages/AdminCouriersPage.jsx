@@ -17,7 +17,6 @@ function AdminCouriersPage() {
     const [showAddModal, setShowAddModal] = useState(false)
     const [newName, setNewName] = useState('')
     const [newPhone, setNewPhone] = useState('')
-    const [newPassword, setNewPassword] = useState('')
     
     // Delete Confirmation Modal
     const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -28,18 +27,13 @@ function AdminCouriersPage() {
     const openAddModal = () => {
         setNewName('')
         setNewPhone('')
-        setNewPassword('')
         setShowAddModal(true)
     }
 
     // Handle Add Courier
     const handleAddCourier = async () => {
-        if (!newName || !newPhone || !newPassword) {
-            toast.error('Harap lengkapi semua data form')
-            return
-        }
-        if (newPassword.length < 6) {
-            toast.error('Password minimal 6 karakter')
+        if (!newName || !newPhone) {
+            toast.error('Harap lengkapi nama dan nomor WhatsApp')
             return
         }
 
@@ -47,8 +41,7 @@ function AdminCouriersPage() {
         try {
             await createCourier.mutateAsync({
                 name: newName,
-                phone: newPhone,
-                password: newPassword
+                phone: newPhone
             })
             toast.success('Kurir berhasil ditambahkan!')
             setShowAddModal(false)
@@ -184,7 +177,7 @@ function AdminCouriersPage() {
             >
                 <div className="space-y-4">
                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                        Isikan data berikut. Akun ini hanya dapat digunakan kurir untuk login ke dashboard khusus Kurir.
+                        Isikan nama dan nomor WhatsApp kurir untuk keperluan notifikasi pengantaran. Kurir tidak memerlukan login.
                     </p>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Nama Kurir</label>
@@ -206,20 +199,9 @@ function AdminCouriersPage() {
                                 type="tel"
                                 value={newPhone}
                                 onChange={(e) => setNewPhone(e.target.value.replace(/\D/g, ''))}
-                                placeholder="812XXXXXXXX (Sbg username login & WA Notif)"
                                 className="flex-1 px-4 py-2 rounded-r-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                             />
                         </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Password Login</label>
-                        <input
-                            type="password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="Minimal 6 karakter"
-                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                        />
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
                         <button

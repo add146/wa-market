@@ -317,6 +317,11 @@ function CheckoutPage() {
                 return
             }
         }
+        
+        if (paymentMethod === 'cod' && shippingType !== 'own_courier') {
+            setSubmitError('Pembayaran COD (Bayar di Tempat) hanya tersedia untuk Kurir Toko')
+            return
+        }
 
         try {
             const orderData = {
@@ -336,6 +341,7 @@ function CheckoutPage() {
                 shippingCost: shippingType === 'own_courier' ? 0 : (selectedCourier?.cost || 0),
                 couponCode: appliedCoupon,
                 guestPhone: `62${phone}`,
+                paymentMethod,
                 items: cartItems.map(item => ({
                     productId: item.productId,
                     quantity: item.quantity,
@@ -346,13 +352,16 @@ function CheckoutPage() {
             const result = await createOrder.mutateAsync(orderData)
 
             // Handle payment based on selected method
-            if (paymentMethod === 'whatsapp') {
-                // Traditional WhatsApp flow
+            if (paymentMethod === 'whatsapp' || paymentMethod === 'cod') {
+                // Traditional WhatsApp flow or COD
                 if (result.whatsappUrl) {
                     window.open(result.whatsappUrl, '_blank')
                 }
                 clearCart()
-                alert(`✅ Pesanan berhasil dibuat!\n\nNo. Order: ${result.order.orderNumber}\nTotal: Rp ${result.order.total.toLocaleString('id-ID')}\n\nSilakan lanjutkan pembayaran via WhatsApp`)
+                const msg = paymentMethod === 'cod' 
+                    ? `✅ Pesanan berhasil dibuat!\n\nNo. Order: ${result.order.orderNumber}\nTotal: Rp ${result.order.total.toLocaleString('id-ID')}\n\nPesanan Anda menggunakan metode COD (Bayar di Tempat). Harap siapkan uang tunai sejumlah Total Bayar untuk diberikan ke Kurir Toko.`
+                    : `✅ Pesanan berhasil dibuat!\n\nNo. Order: ${result.order.orderNumber}\nTotal: Rp ${result.order.total.toLocaleString('id-ID')}\n\nSilakan lanjutkan pembayaran via WhatsApp`;
+                alert(msg)
                 navigate('/')
             } else {
                 // Online payment (Xendit / Midtrans)
@@ -760,6 +769,26 @@ function CheckoutPage() {
                                     </div>
                                 </div>
                             </button>
+
+                            {/* COD (if own_courier) */}
+                            {shippingType === 'own_courier' && (
+                                <button
+                                    type="button"
+                                    onClick={() => setPaymentMethod('cod')}
+                                    className={`w-full p-4 rounded-xl border-2 transition-all text-left ${paymentMethod === 'cod'
+                                        ? 'border-primary bg-primary/5'
+                                        : 'border-slate-200 dark:border-slate-600 hover:border-primary/50'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-2xl">💵</span>
+                                        <div>
+                                            <p className="font-semibold text-slate-900 dark:text-white">Bayar di Tempat (COD)</p>
+                                            <p className="text-sm text-slate-500">Bayar tunai ke Kurir Toko saat paket tiba</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            )}
 
                             {/* Online Payment (if enabled) */}
                             {isPaymentGatewayEnabled && paymentProvider === 'xendit' && (
