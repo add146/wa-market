@@ -48,6 +48,10 @@ ${order.uniqueCode ? `Kode Unik: +Rp ${order.uniqueCode}` : ''}
 
 📅 Tanggal: ${order.createdAt ? new Date(order.createdAt).toLocaleString('id-ID') : '-'}
 
+📝 *Instruksi Pembayaran Manual:*
+Mohon selesaikan pembayaran sesuai *TOTAL BAYAR* ke rekening Admin.
+Setelah transfer, wajib balas pesan ini dengan melampirkan *BUKTI TRANSFER (Foto Nota)* agar pesanan segera diproses.
+
 💡 *Simpan No. Order ini untuk konfirmasi pembayaran*
 `.trim();
 

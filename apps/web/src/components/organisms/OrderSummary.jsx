@@ -125,7 +125,7 @@ function OrderSummary({
             {/* CTA Section */}
             <div className="bg-background-light dark:bg-[#152a23] p-6 lg:p-8 border-t border-border-color dark:border-surface-dark">
                 <p className="text-sm text-center text-text-main-light/70 dark:text-gray-400 mb-4">
-                    Detail pesanan akan diteruskan ke WhatsApp Admin. Silakan selesaikan pembayaran setelah terhubung.
+                    Kirim detail pesanan ini ke WhatsApp Admin. <strong>Wajib lampirkan bukti transfer (Foto Nota)</strong> ke nomor tersebut agar pesanan langsung diproses.
                 </p>
 
                 <Button
@@ -142,7 +142,7 @@ function OrderSummary({
                     ) : (
                         <>
                             <Icon name="chat" size={24} className="group-hover:animate-pulse" />
-                            KIRIM VIA WHATSAPP
+                            KIRIM NOTA VIA WA
                         </>
                     )}
                 </Button>
