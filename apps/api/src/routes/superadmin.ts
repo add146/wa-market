@@ -6,6 +6,13 @@ import { eq, and, sql, count } from 'drizzle-orm';
 import { authMiddleware, superadminMiddleware, createSession, deleteSession, verifyPassword } from '../middleware/auth';
 import type { Env } from '../index';
 
+// Default plan config (fallback if not set in DB)
+const DEFAULT_PLAN_CONFIG = {
+    free:    { maxProducts: 50, courierInternal: false, wahaNotif: false, customDomain: false, analytics: 'basic',  priceMonth: 0,      priceYear: 0 },
+    starter: { maxProducts: 500, courierInternal: true,  wahaNotif: false, customDomain: false, analytics: 'full',   priceMonth: 99000,  priceYear: 990000 },
+    pro:     { maxProducts: -1,  courierInternal: true,  wahaNotif: true,  customDomain: true,  analytics: 'full',   priceMonth: 299000, priceYear: 2990000 },
+}
+
 const router = new Hono<{ Bindings: Env; Variables: { user: any } }>();
 
 // ─────────────────────────────────────
@@ -383,6 +390,94 @@ router.patch('/subscriptions/:id/approve', authMiddleware, superadminMiddleware,
     } catch (e) {
         console.error('Approve subscription error:', e);
         return c.json({ error: 'Failed' }, 500);
+    }
+});
+
+
+// ─────────────────────────────────────
+// PUBLIC LANDING SETTINGS (No auth needed)
+// ─────────────────────────────────────
+
+/**
+ * GET /api/superadmin/landing
+ * Public endpoint - Landing page content
+ */
+router.get('/landing', async (c) => {
+    try {
+        const db = getDb(c.env);
+        const settingsRaw = await db.select().from(platformSettings);
+        const all: Record<string, string> = {};
+        for (const s of settingsRaw) {
+            all[s.key] = s.value;
+        }
+
+        // Extract landing-related keys + plan_config
+        const landingKeys = Object.fromEntries(
+            Object.entries(all).filter(([k]) => k.startsWith('landing_') || k === 'plan_config')
+        );
+
+        return c.json(landingKeys);
+    } catch (e) {
+        return c.json({}, 200); // Return empty, LandingPage will use defaults
+    }
+});
+
+/**
+ * GET /api/superadmin/plan-config
+ * Public endpoint for storefront to read plan limits
+ */
+router.get('/plan-config', async (c) => {
+    try {
+        const db = getDb(c.env);
+        const [row] = await db.select().from(platformSettings).where(eq(platformSettings.key, 'plan_config'));
+        if (row?.value) {
+            return c.json(JSON.parse(row.value));
+        }
+        return c.json(DEFAULT_PLAN_CONFIG);
+    } catch (e) {
+        return c.json(DEFAULT_PLAN_CONFIG);
+    }
+});
+
+// ─────────────────────────────────────
+// SUPERADMIN UPLOAD (No store scope)
+// ─────────────────────────────────────
+
+/**
+ * POST /api/superadmin/upload
+ * Upload image for landing page to R2 (Superadmin only)
+ */
+router.post('/upload', authMiddleware, superadminMiddleware, async (c) => {
+    try {
+        const formData = await c.req.parseBody();
+        const file = formData['image'] as File;
+
+        if (!file || typeof file === 'string') {
+            return c.json({ error: 'No image file provided' }, 400);
+        }
+
+        const mimeType = file.type;
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!validTypes.includes(mimeType)) {
+            return c.json({ error: 'Invalid file type' }, 400);
+        }
+
+        const ext = '.' + mimeType.split('/')[1].replace('jpeg', 'jpg');
+        const filename = 'platform_' + crypto.randomUUID() + ext;
+
+        const arrayBuffer = await file.arrayBuffer();
+        await c.env.MEDIA_BUCKET.put(filename, arrayBuffer, {
+            httpMetadata: { contentType: mimeType },
+        });
+
+        return c.json({
+            success: true,
+            url: `/uploads/${filename}`,
+            filename,
+        });
+    } catch (error) {
+        console.error('Superadmin upload error:', error);
+        return c.json({ error: 'Failed to upload' }, 500);
     }
 });
 

@@ -11,7 +11,8 @@ import {
     useToggleStore,
     useDeleteStore,
     useSuperadminSettings,
-    useUpdateSuperadminSettings
+    useUpdateSuperadminSettings,
+    useSuperadminUpload
 } from '../../hooks'
 import axios from 'axios'
 
@@ -93,6 +94,7 @@ function SuperAdminPage() {
 
     const { data: globalSettings, isLoading: globalSettingsLoading } = useSuperadminSettings()
     const updateSettingsMutation = useUpdateSuperadminSettings()
+    const uploadMutation = useSuperadminUpload()
     const [localSettings, setLocalSettings] = useState({})
 
     useEffect(() => {
@@ -100,6 +102,18 @@ function SuperAdminPage() {
             setLocalSettings(globalSettings)
         }
     }, [globalSettings])
+
+    const handleFileUpload = async (e, key) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        try {
+            const res = await uploadMutation.mutateAsync(file)
+            handleSettingChange(key, res.url)
+        } catch (err) {
+            alert('Gagal mengupload gambar')
+        }
+    }
+
 
     // Toggle dark mode
     const toggleTheme = () => {
@@ -201,8 +215,9 @@ function SuperAdminPage() {
         { id: 'overview', label: 'Overview', icon: 'dashboard' },
         { id: 'stores',   label: 'Kelola Toko', icon: 'storefront' },
         { id: 'subscriptions', label: 'Langganan', icon: 'credit_card' },
-        { id: 'plans',    label: 'Paket & Fitur', icon: 'workspace_premium' },
-        { id: 'settings', label: 'Pengaturan Platform', icon: 'settings' },
+        { id: 'landing',  label: 'Landing Page', icon: 'web' },
+        { id: 'plans',    label: 'Paket & Fitur', icon: 'tune' },
+        { id: 'settings', label: 'Pengaturan', icon: 'settings' },
     ]
 
     return (
@@ -420,68 +435,297 @@ function SuperAdminPage() {
                     </div>
                 )}
 
+
+                {/* ─── Tab: Landing Page Edit ─── */}
+                {activeTab === 'landing' && (
+                    <div className="space-y-6 max-w-4xl">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Editor Landing Page</h2>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm">Sesuaikan teks, gambar, dan fitur yang tampil di halaman depan (Home).</p>
+                            </div>
+                            <button onClick={handleSaveSettings} disabled={updateSettingsMutation.isPending}
+                                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                                {updateSettingsMutation.isPending ? <Icon name="sync" size={18} className="animate-spin" /> : <Icon name="save" size={18} />} Simpan Landing
+                            </button>
+                        </div>
+
+                        {globalSettingsLoading ? (
+                            <div className="flex justify-center py-12"><Icon name="sync" size={32} className="animate-spin text-indigo-400" /></div>
+                        ) : (
+                            <div className="space-y-6">
+                                {/* SECTION A: Identitas Platform */}
+                                <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-6">
+                                    <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-4 border-b border-slate-200 dark:border-slate-700 pb-2">A. Identitas Platform</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Nama Platform / Brand</label>
+                                            <input type="text" value={localSettings.landing_platform_name || ''} onChange={e => handleSettingChange('landing_platform_name', e.target.value)} placeholder="WA Market" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Logo URL (Upload atau Paste URL)</label>
+                                            <div className="flex gap-2">
+                                                <input type="text" value={localSettings.landing_logo_url || ''} onChange={e => handleSettingChange('landing_logo_url', e.target.value)} placeholder="/logo.png" className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none" />
+                                                <label className="px-4 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors flex items-center justify-center">
+                                                    <Icon name="upload" size={20} />
+                                                    <input type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'landing_logo_url')} disabled={uploadMutation.isPending} />
+                                                </label>
+                                            </div>
+                                            {localSettings.landing_logo_url && <img src={localSettings.landing_logo_url} alt="Logo Preview" className="h-10 mt-2 object-contain" />}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* SECTION B: Hero Section */}
+                                <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-6">
+                                    <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-4 border-b border-slate-200 dark:border-slate-700 pb-2">B. Hero Section</h3>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Judul Utama H1</label>
+                                            <input type="text" value={localSettings.landing_hero_title || ''} onChange={e => handleSettingChange('landing_hero_title', e.target.value)} placeholder="Toko Online Berbasis WhatsApp" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-lg font-bold" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Deskripsi Subtitle</label>
+                                            <textarea value={localSettings.landing_hero_subtitle || ''} onChange={e => handleSettingChange('landing_hero_subtitle', e.target.value)} placeholder="Buka toko online mandiri Anda..." rows="3" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none" />
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Teks Tombol CTA</label>
+                                                <input type="text" value={localSettings.landing_cta_primary_text || ''} onChange={e => handleSettingChange('landing_cta_primary_text', e.target.value)} placeholder="Mulai Berjualan (Gratis)" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Slug Toko Demo</label>
+                                                <input type="text" value={localSettings.landing_cta_demo_slug || ''} onChange={e => handleSettingChange('landing_cta_demo_slug', e.target.value)} placeholder="tokoindo" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* SECTION C: Features List */}
+                                <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-6">
+                                    <div className="flex items-center justify-between mb-4 border-b border-slate-200 dark:border-slate-700 pb-2">
+                                        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">C. Fitur Platform</h3>
+                                    </div>
+                                    <div className="space-y-4 mb-6">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Judul Seksi Fitur</label>
+                                                <input type="text" value={localSettings.landing_features_title || ''} onChange={e => handleSettingChange('landing_features_title', e.target.value)} placeholder="Fitur Lengkap Bisnis Anda" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Deskripsi Seksi Fitur</label>
+                                                <textarea value={localSettings.landing_features_subtitle || ''} onChange={e => handleSettingChange('landing_features_subtitle', e.target.value)} placeholder="Dirancang khusus..." rows="2" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Kartu Fitur Dinamis */}
+                                    {(() => {
+                                        // Parse fitur json
+                                        let featuresData = [];
+                                        try {
+                                            if (localSettings.landing_features_json) {
+                                                featuresData = JSON.parse(localSettings.landing_features_json);
+                                            } else {
+                                                featuresData = [
+                                                    { icon: 'chat', title: 'Notifikasi WAHA API', desc: 'Tagihan dan resi dikirim otomatis ke WA pelanggan.' },
+                                                    { icon: 'storefront', title: 'Multi-Tenant SaaS', desc: 'Satu platform, ribuan toko independen.' }
+                                                ]; // Default skeleton if completely empty
+                                            }
+                                        } catch (e) { featuresData = [] }
+
+                                        const updateFeature = (index, key, val) => {
+                                            const newArray = [...featuresData];
+                                            newArray[index][key] = val;
+                                            handleSettingChange('landing_features_json', JSON.stringify(newArray));
+                                        };
+
+                                        const addFeature = () => {
+                                            const newArray = [...featuresData, { icon: 'star', title: 'Fitur Baru', desc: 'Deskripsi fitur singkat' }];
+                                            handleSettingChange('landing_features_json', JSON.stringify(newArray));
+                                        };
+
+                                        const removeFeature = (index) => {
+                                            const newArray = featuresData.filter((_, i) => i !== index);
+                                            handleSettingChange('landing_features_json', JSON.stringify(newArray));
+                                        };
+
+                                        return (
+                                            <div className="space-y-4">
+                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Daftar Fitur (Cards)</label>
+                                                {featuresData.map((feat, idx) => (
+                                                    <div key={idx} className="flex gap-3 items-start bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-700 rounded-xl relative group">
+                                                        <div className="flex-1 space-y-3">
+                                                            <div className="grid grid-cols-2 gap-3">
+                                                                <div>
+                                                                    <label className="text-xs text-slate-500 mb-1 block">Material Icon Name</label>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Icon name={feat.icon || 'star'} size={24} className="text-primary flex-shrink-0" />
+                                                                        <input type="text" value={feat.icon || ''} onChange={e => updateFeature(idx, 'icon', e.target.value)} className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white" />
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-xs text-slate-500 mb-1 block">Judul Fitur</label>
+                                                                    <input type="text" value={feat.title || ''} onChange={e => updateFeature(idx, 'title', e.target.value)} className="w-full text-sm font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white" />
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-xs text-slate-500 mb-1 block">Deskripsi</label>
+                                                                <input type="text" value={feat.desc || ''} onChange={e => updateFeature(idx, 'desc', e.target.value)} className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white" />
+                                                            </div>
+                                                        </div>
+                                                        <button onClick={() => removeFeature(idx)} className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg absolute -right-2 -top-2 bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700">
+                                                            <Icon name="close" size={16} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                <button onClick={addFeature} className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl text-slate-500 dark:text-slate-400 font-medium hover:border-primary hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2">
+                                                    <Icon name="add" size={20} /> Tambah Fitur
+                                                </button>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+
+                                {/* SECTION D: Footer & SEO */}
+                                <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-6">
+                                    <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-4 border-b border-slate-200 dark:border-slate-700 pb-2">D. Footer & SEO</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Teks Copyright Footer</label>
+                                            <input type="text" value={localSettings.landing_footer_text || ''} onChange={e => handleSettingChange('landing_footer_text', e.target.value)} placeholder="© 2026 PT Nama Perusahaan" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">SEO Meta Title</label>
+                                            <input type="text" value={localSettings.landing_meta_title || ''} onChange={e => handleSettingChange('landing_meta_title', e.target.value)} placeholder="Bikin Toko Online Gratis" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* ─── Tab: Plans & Features ─── */}
                 {activeTab === 'plans' && (
-                    <div className="space-y-8">
-                        <div>
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Paket & Fitur</h2>
-                            <p className="text-slate-500 dark:text-slate-400 text-sm">Perbandingan fitur per tingkat langganan toko.</p>
+                    <div className="space-y-6 max-w-5xl">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Konfigurasi Paket & Harga (Plans)</h2>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm">Atur batas maksimal produk (limit) dan ketersediaan fitur untuk masing-masing tier langganan.</p>
+                            </div>
+                            <button onClick={handleSaveSettings} disabled={updateSettingsMutation.isPending}
+                                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                                {updateSettingsMutation.isPending ? <Icon name="sync" size={18} className="animate-spin" /> : <Icon name="save" size={18} />} Simpan Plan
+                            </button>
                         </div>
 
-                        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl overflow-hidden">
-                            <div className="overflow-x-auto no-scrollbar">
-                            <table className="w-full text-sm min-w-[600px]">
-                                <thead>
-                                    <tr className="border-b border-slate-200 dark:border-slate-700/50">
-                                        <th className="px-6 py-4 text-left text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold">Fitur</th>
-                                        <th className="px-6 py-4 text-center">
-                                            <span className="text-slate-700 dark:text-slate-300 font-bold">🆓 Free</span>
-                                        </th>
-                                        <th className="px-6 py-4 text-center">
-                                            <span className="text-blue-400 font-bold">🚀 Starter</span>
-                                        </th>
-                                        <th className="px-6 py-4 text-center">
-                                            <span className="text-amber-400 font-bold">👑 Pro</span>
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {PLAN_FEATURES.map((row, i) => (
-                                        <tr key={i} className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors">
-                                            <td className="px-6 py-3.5 text-slate-700 dark:text-slate-300 font-medium">{row.feature}</td>
-                                            <td className="px-6 py-3.5 text-center text-slate-500 dark:text-slate-400">{row.free}</td>
-                                            <td className="px-6 py-3.5 text-center text-slate-700 dark:text-slate-300">{row.starter}</td>
-                                            <td className="px-6 py-3.5 text-center text-amber-300 font-semibold">{row.pro}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            </div>
-                        </div>
+                        {globalSettingsLoading ? (
+                            <div className="flex justify-center py-12"><Icon name="sync" size={32} className="animate-spin text-indigo-400" /></div>
+                        ) : (
+                            <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl overflow-hidden p-6">
+                                {(() => {
+                                    // Default fallback defined identical to backend
+                                    const defaultPlanConf = {
+                                        free:    { maxProducts: 50, courierInternal: false, wahaNotif: false, customDomain: false, analytics: 'basic',  priceMonth: 0,      priceYear: 0 },
+                                        starter: { maxProducts: 500, courierInternal: true,  wahaNotif: false, customDomain: false, analytics: 'full',   priceMonth: 99000,  priceYear: 990000 },
+                                        pro:     { maxProducts: -1,  courierInternal: true,  wahaNotif: true,  customDomain: true,  analytics: 'full',   priceMonth: 299000, priceYear: 2990000 },
+                                    };
 
-                        {/* Account Info */}
-                        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-6">
-                            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-4">Akun Superadmin</h3>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                    <p className="text-slate-500 text-xs mb-1">Nama</p>
-                                    <p className="text-slate-900 dark:text-white font-medium">{session.user.name}</p>
-                                </div>
-                                <div>
-                                    <p className="text-slate-500 text-xs mb-1">Nomor WhatsApp</p>
-                                    <p className="text-slate-900 dark:text-white font-medium">{session.user.phone}</p>
-                                </div>
-                                <div>
-                                    <p className="text-slate-500 text-xs mb-1">Role</p>
-                                    <p className="text-indigo-400 font-bold uppercase text-xs tracking-wider">{session.user.role}</p>
-                                </div>
-                                <div>
-                                    <p className="text-slate-500 text-xs mb-1">Platform</p>
-                                    <p className="text-slate-900 dark:text-white font-medium">Cloudflare Workers + D1</p>
-                                </div>
+                                    let conf = {};
+                                    try {
+                                        conf = localSettings.plan_config ? JSON.parse(localSettings.plan_config) : defaultPlanConf;
+                                        // Merge if any missing
+                                        conf = { ...defaultPlanConf, ...conf };
+                                        Object.keys(defaultPlanConf).forEach(k => {
+                                            conf[k] = { ...defaultPlanConf[k], ...conf[k] };
+                                        });
+                                    } catch(e) { conf = defaultPlanConf; }
+
+                                    const updatePlanConfig = (planKey, field, val) => {
+                                        const newConf = { ...conf, [planKey]: { ...conf[planKey], [field]: val } };
+                                        handleSettingChange('plan_config', JSON.stringify(newConf));
+                                    };
+
+                                    return (
+                                        <div className="overflow-x-auto no-scrollbar pb-8">
+                                            <table className="w-full text-sm min-w-[700px] border-collapse">
+                                                <thead>
+                                                    <tr>
+                                                        <th className="px-4 py-4 text-left text-slate-500 dark:text-slate-400 uppercase font-bold text-xs border-b-2 border-slate-200 dark:border-slate-700 w-1/4">Feature / Setting</th>
+                                                        <th className="px-4 py-4 text-center border-b-2 border-slate-200 dark:border-slate-700 w-1/4 bg-slate-100/50 dark:bg-slate-800/80 rounded-tl-xl"><span className="text-slate-700 dark:text-slate-300 text-lg font-bold">🆓 Free</span></th>
+                                                        <th className="px-4 py-4 text-center border-b-2 border-slate-200 dark:border-slate-700 w-1/4 bg-blue-50/50 dark:bg-blue-900/10"><span className="text-blue-500 font-bold text-lg">🚀 Starter</span></th>
+                                                        <th className="px-4 py-4 text-center border-b-2 border-slate-200 dark:border-slate-700 w-1/4 bg-amber-50/50 dark:bg-amber-900/10 rounded-tr-xl"><span className="text-amber-500 font-bold text-lg">👑 Pro</span></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {/* Maksimal Produk */}
+                                                    <tr className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                                        <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-200">Maksimal Produk<br/><span className="text-xs text-slate-400 font-normal">Isi -1 untuk Unlimited</span></td>
+                                                        {['free', 'starter', 'pro'].map(p => (
+                                                            <td key={p} className={`px-4 py-4 ${p==='free'?'bg-slate-100/50 dark:bg-slate-800/80':p==='starter'?'bg-blue-50/50 dark:bg-blue-900/10':'bg-amber-50/50 dark:bg-amber-900/10'}`}>
+                                                                <input type="number" min="-1" value={conf[p].maxProducts} onChange={e => updatePlanConfig(p, 'maxProducts', parseInt(e.target.value)||0)} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-center" />
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                    {/* Internal Courier */}
+                                                    <tr className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                                        <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-200">Kurir Internal Toko</td>
+                                                        {['free', 'starter', 'pro'].map(p => (
+                                                            <td key={p} className={`px-4 py-4 text-center ${p==='free'?'bg-slate-100/50 dark:bg-slate-800/80':p==='starter'?'bg-blue-50/50 dark:bg-blue-900/10':'bg-amber-50/50 dark:bg-amber-900/10'}`}>
+                                                                <input type="checkbox" checked={conf[p].courierInternal} onChange={e => updatePlanConfig(p, 'courierInternal', e.target.checked)} className="w-5 h-5 accent-indigo-500" />
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                    {/* Notifikasi WAHA */}
+                                                    <tr className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                                        <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-200">Notifikasi WA (Auto API)</td>
+                                                        {['free', 'starter', 'pro'].map(p => (
+                                                            <td key={p} className={`px-4 py-4 text-center ${p==='free'?'bg-slate-100/50 dark:bg-slate-800/80':p==='starter'?'bg-blue-50/50 dark:bg-blue-900/10':'bg-amber-50/50 dark:bg-amber-900/10'}`}>
+                                                                <input type="checkbox" checked={conf[p].wahaNotif} onChange={e => updatePlanConfig(p, 'wahaNotif', e.target.checked)} className="w-5 h-5 accent-indigo-500" />
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                    {/* Custom Domain */}
+                                                    <tr className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                                        <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-200">Custom Domain</td>
+                                                        {['free', 'starter', 'pro'].map(p => (
+                                                            <td key={p} className={`px-4 py-4 text-center ${p==='free'?'bg-slate-100/50 dark:bg-slate-800/80':p==='starter'?'bg-blue-50/50 dark:bg-blue-900/10':'bg-amber-50/50 dark:bg-amber-900/10'}`}>
+                                                                <input type="checkbox" checked={conf[p].customDomain} onChange={e => updatePlanConfig(p, 'customDomain', e.target.checked)} className="w-5 h-5 accent-indigo-500" />
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                    {/* Analytics */}
+                                                    <tr className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                                        <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-200">Analytics Dashboard</td>
+                                                        {['free', 'starter', 'pro'].map(p => (
+                                                            <td key={p} className={`px-4 py-4 text-center ${p==='free'?'bg-slate-100/50 dark:bg-slate-800/80':p==='starter'?'bg-blue-50/50 dark:bg-blue-900/10':'bg-amber-50/50 dark:bg-amber-900/10'}`}>
+                                                                <select value={conf[p].analytics} onChange={e => updatePlanConfig(p, 'analytics', e.target.value)} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-center text-sm">
+                                                                    <option value="none">None</option>
+                                                                    <option value="basic">Basic</option>
+                                                                    <option value="full">Full Analytics</option>
+                                                                </select>
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                    {/* Base Price Month */}
+                                                    <tr className="border-b border-slate-200 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                                        <td className="px-4 py-4 font-medium text-slate-700 dark:text-slate-200">Harga per Bulan (Rp)</td>
+                                                        {['free', 'starter', 'pro'].map(p => (
+                                                            <td key={p} className={`px-4 py-4 ${p==='free'?'bg-slate-100/50 dark:bg-slate-800/80 rounded-bl-xl':p==='starter'?'bg-blue-50/50 dark:bg-blue-900/10':'bg-amber-50/50 dark:bg-amber-900/10 rounded-br-xl'}`}>
+                                                                <input type="number" value={conf[p].priceMonth} disabled={p==='free'} onChange={e => updatePlanConfig(p, 'priceMonth', parseInt(e.target.value)||0)} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-center disabled:opacity-50" />
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    );
+                                })()}
                             </div>
-                        </div>
+                        )}
                     </div>
+
                 )}
 
                 {/* ─── Tab: Subscriptions ─── */}

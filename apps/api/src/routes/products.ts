@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
 import { getDb } from '../db';
 import { products, productVariants, productImages, categories } from '../db/schema';
-import { eq, desc, like, and } from 'drizzle-orm';
+import { eq, desc, like, and, count } from 'drizzle-orm';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
+import { platformSettings, stores } from '../db/schema';
 import type { Env } from '../index';
 
 const router = new Hono<{ Bindings: Env; Variables: { store: any } }>();
@@ -126,6 +127,25 @@ router.post('/', authMiddleware, adminMiddleware, async (c) => {
 
         const slug = body.slug || generateSlug(body.name || '');
         const image = body.image || (body.images?.[0] || null);
+
+        // ─── Plan limit enforcement ───────────────────────
+        const [planConfigRow] = await db.select().from(platformSettings).where(eq(platformSettings.key, 'plan_config'));
+        if (planConfigRow?.value) {
+            try {
+                const planConfig = JSON.parse(planConfigRow.value);
+                const storePlan = (store.plan || 'free') as string;
+                const planLimit = planConfig[storePlan]?.maxProducts ?? 50;
+                if (planLimit !== -1) {
+                    const [{ total }] = await db.select({ total: count() }).from(products).where(eq(products.storeId, store.id));
+                    if (total >= planLimit) {
+                        return c.json({ error: `Batas produk untuk plan ${storePlan.toUpperCase()} adalah ${planLimit} produk. Upgrade plan untuk menambah lebih banyak produk.` }, 403);
+                    }
+                }
+            } catch (parseErr) {
+                // ignore parse error, let through
+            }
+        }
+        // ─────────────────────────────────────────────────
 
         const { variants: variantsData, images: imagesData, ...productData } = body;
 

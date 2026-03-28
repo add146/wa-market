@@ -152,3 +152,43 @@ export function useUpdateSuperadminSettings() {
         }
     })
 }
+
+// ─── Public Landing Content ─────────
+
+export function useLandingSettings() {
+    return useQuery({
+        queryKey: ['sa-landing-public'],
+        queryFn: async () => {
+            const { data } = await axios.get(`${API_BASE_URL}/superadmin/landing`)
+            return data
+        },
+        staleTime: 60000,
+    })
+}
+
+// ─── Superadmin Upload ───────────────
+
+export function useSuperadminUpload() {
+    return useMutation({
+        mutationFn: async (file) => {
+            const formData = new FormData()
+            // Compress image on frontend before upload
+            try {
+                const imageCompression = (await import('browser-image-compression')).default
+                const compressed = await imageCompression(file, {
+                    maxSizeMB: 1,
+                    maxWidthOrHeight: 1920,
+                    useWebWorker: true,
+                    initialQuality: 0.8,
+                })
+                formData.append('image', compressed)
+            } catch {
+                formData.append('image', file)
+            }
+            const { data } = await superAdminApi.post('/superadmin/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            })
+            return data
+        },
+    })
+}
