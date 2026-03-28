@@ -429,6 +429,23 @@ function AdminSettingsPage() {
                                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Webhook Verification Token (Opsional)</label>
                                                     <input type="password" value={settings.xendit_webhook_token || ''} onChange={(e) => handleChange('xendit_webhook_token', e.target.value)} placeholder="Token dari Xendit Dashboard" className={inputClass} />
                                                 </div>
+                                                <div className="mt-4 p-4 bg-primary/10 border border-primary/20 rounded-xl">
+                                                    <h4 className="flex items-center gap-2 font-bold text-primary mb-2 text-sm">
+                                                        <Icon name="info" size={18} /> Tutorial Webhook Xendit
+                                                    </h4>
+                                                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-2 leading-relaxed">
+                                                        Agar sistem tahu kapan pelanggan telah berhasil membayar, Anda <strong>wajib</strong> mendaftarkan URL Webhook ini di dashboard Xendit (Callback URL).
+                                                    </p>
+                                                    <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 break-all font-mono text-xs text-green-400 mb-3">
+                                                        {(import.meta.env.VITE_API_URL || 'https://wa-market-api.khibrohstudio.workers.dev/api')}
+                                                        <span className="text-white">/payment/webhook/xendit</span>
+                                                    </div>
+                                                    <ol className="list-decimal pl-4 space-y-1 text-sm text-slate-600 dark:text-slate-400">
+                                                        <li>Buka Xendit <strong>Dashboard &gt; Settings &gt; Developers &gt; Webhooks</strong>.</li>
+                                                        <li>Centang <strong>Invoice paid</strong>.</li>
+                                                        <li>Tempel (Paste) URL di atas pada kolom yang tersedia, lalu Simpan.</li>
+                                                    </ol>
+                                                </div>
                                             </div>
                                         )}
 
@@ -444,6 +461,24 @@ function AdminSettingsPage() {
                                                     <input type="text" value={settings.midtrans_client_key || ''} onChange={(e) => handleChange('midtrans_client_key', e.target.value)} placeholder="Mid-client-..." className={inputClass} />
                                                 </div>
                                                 <p className="text-xs text-slate-400">Dapatkan di <a href="https://dashboard.midtrans.com/settings/config_info" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Midtrans Dashboard → Configuration</a></p>
+                                                
+                                                <div className="mt-4 p-4 bg-primary/10 border border-primary/20 rounded-xl">
+                                                    <h4 className="flex items-center gap-2 font-bold text-primary mb-2 text-sm">
+                                                        <Icon name="info" size={18} /> Tutorial Webhook Midtrans
+                                                    </h4>
+                                                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-2 leading-relaxed">
+                                                        Agar sistem otomatis memverifikasi saat pelanggan sudah membayar, Anda <strong>wajib</strong> mengisi Notification URL di Dashboard Midtrans.
+                                                    </p>
+                                                    <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 break-all font-mono text-xs text-green-400 mb-3">
+                                                        {(import.meta.env.VITE_API_URL || 'https://wa-market-api.khibrohstudio.workers.dev/api')}
+                                                        <span className="text-white">/payment/webhook/midtrans</span>
+                                                    </div>
+                                                    <ol className="list-decimal pl-4 space-y-1 text-sm text-slate-600 dark:text-slate-400">
+                                                        <li>Buka <a href="https://dashboard.midtrans.com/settings/vtweb_configuration" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Settings &gt; Payment Link</a> atau <a href="https://dashboard.midtrans.com/settings/snap_preference" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Settings &gt; Snap Preferences</a> di Midtrans.</li>
+                                                        <li>Di bagian <strong>Payment Notification URL</strong>, tempel/paste URL di atas.</li>
+                                                        <li>Klik <strong>Save / Simpan</strong>.</li>
+                                                    </ol>
+                                                </div>
                                             </div>
                                         )}
                                     </>

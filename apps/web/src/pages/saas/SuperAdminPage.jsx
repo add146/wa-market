@@ -588,6 +588,23 @@ function SuperAdminPage() {
                                                 placeholder="opsional"
                                             />
                                         </div>
+                                        <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl">
+                                            <h4 className="flex items-center gap-2 font-bold text-indigo-600 dark:text-indigo-400 mb-2 text-sm">
+                                                <Icon name="info" size={18} /> Tutorial Webhook Xendit
+                                            </h4>
+                                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2 leading-relaxed">
+                                                Agar sistem otomatis mengubah status toko menjadi Aktif (Pro/Starter) saat admin toko membayar langganan, Anda <strong>wajib</strong> mengatur URL Webhook ini di dashboard Xendit (Callback URL).
+                                            </p>
+                                            <div className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-3 break-all font-mono text-xs text-indigo-600 dark:text-indigo-400 mb-3">
+                                                {(import.meta.env.VITE_API_URL || 'https://wa-market-api.khibrohstudio.workers.dev/api')}
+                                                <span className="text-slate-900 dark:text-white">/subscription/webhook/xendit</span>
+                                            </div>
+                                            <ol className="list-decimal pl-4 space-y-1 text-sm text-slate-600 dark:text-slate-400">
+                                                <li>Buka Xendit <strong>Dashboard &gt; Settings &gt; Developers &gt; Webhooks</strong>.</li>
+                                                <li>Centang aksi <strong>Invoice paid</strong> dan <strong>Invoice expired</strong>.</li>
+                                                <li>Tempel (Paste) URL di atas pada kolom Callback URL, lalu Simpan.</li>
+                                            </ol>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -618,6 +635,23 @@ function SuperAdminPage() {
                                                 className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                                                 placeholder="Mid-client-..."
                                             />
+                                        </div>
+                                        <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                                            <h4 className="flex items-center gap-2 font-bold text-emerald-600 dark:text-emerald-400 mb-2 text-sm">
+                                                <Icon name="info" size={18} /> Tutorial Webhook Midtrans
+                                            </h4>
+                                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2 leading-relaxed">
+                                                Agar sistem otomatis memverifikasi saat pemilik toko sudah membayar langganan, Anda <strong>wajib</strong> mengisi Notification URL di Dashboard Midtrans.
+                                            </p>
+                                            <div className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-3 break-all font-mono text-xs text-emerald-600 dark:text-emerald-400 mb-3">
+                                                {(import.meta.env.VITE_API_URL || 'https://wa-market-api.khibrohstudio.workers.dev/api')}
+                                                <span className="text-slate-900 dark:text-white">/subscription/webhook/midtrans</span>
+                                            </div>
+                                            <ol className="list-decimal pl-4 space-y-1 text-sm text-slate-600 dark:text-slate-400">
+                                                <li>Buka <a href="https://dashboard.midtrans.com/settings/vtweb_configuration" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:underline">Settings &gt; Payment Link</a> di Midtrans.</li>
+                                                <li>Di bagian <strong>Payment Notification URL</strong>, tempel/paste URL di atas.</li>
+                                                <li>Klik <strong>Save / Simpan</strong>.</li>
+                                            </ol>
                                         </div>
                                     </div>
                                 </div>
