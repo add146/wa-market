@@ -38,6 +38,7 @@ export function CartProvider({ children }) {
                 return [...prevItems, {
                     id: `${product.id}-${Date.now()}`,
                     productId: product.id,
+                    slug: product.slug,
                     name: product.name,
                     price: product.price,
                     originalPrice: product.originalPrice,

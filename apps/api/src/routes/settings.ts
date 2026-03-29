@@ -29,7 +29,9 @@ router.get('/', async (c) => {
             // Store GPS & Delivery Radius & Cost
             'store_lat', 'store_lng', 'store_delivery_radius', 'store_delivery_cost',
             // Delivery Schedule
-            'delivery_schedule', 'delivery_hours_after_payment'
+            'delivery_schedule', 'delivery_hours_after_payment',
+            // RajaOngkir / Komerce Settings (Public)
+            'rajaongkir_enabled', 'rajaongkir_tier'
         ];
         
         const settingsObject: Record<string, string> = {};

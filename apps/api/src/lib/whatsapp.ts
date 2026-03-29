@@ -108,12 +108,47 @@ ${itemsList}
 💰 Ongkir: Rp ${order.shippingCost.toLocaleString('id-ID')}
 
 🔗 Buka dashboard kurir:
-https://unikasik.com/s/${storeSlug}/kurir
+https://warung.my.id/s/${storeSlug}/kurir
 
 _Balas pesan ini jika ada kendala_
 `.trim();
 
     return message;
+}
+
+export function formatStatusChangeNotification(order: Order, storeName: string): string {
+    const statusLabels: Record<string, string> = {
+        'pending': 'Menunggu',
+        'approved': 'Disetujui',
+        'shipped': 'Dikirim',
+        'on_delivery': 'Sedang Diantar',
+        'completed': 'Selesai',
+        'cancelled': 'Dibatalkan'
+    };
+
+    const statusLabel = statusLabels[order.status as keyof typeof statusLabels] || order.status;
+    
+    let extraInfo = '';
+    if (order.status === 'approved') {
+        extraInfo = '\nPesanan Anda telah kami setujui dan sedang disiapkan.';
+    } else if (order.status === 'shipped' || order.status === 'on_delivery') {
+        extraInfo = '\nPesanan Anda dalam perjalanan menuju lokasi Anda.';
+    } else if (order.status === 'completed') {
+        extraInfo = '\nTerima kasih telah berbelanja! Mohon berikan ulasan Anda di website kami.';
+    } else if (order.status === 'cancelled') {
+        extraInfo = '\nMohon maaf, pesanan Anda telah dibatalkan. Silakan hubungi CS jika ada pertanyaan.';
+    }
+
+    return `
+🔔 *UPDATE STATUS PESANAN*
+Dari: ${storeName}
+
+No. Order: *${order.orderNumber}*
+Status Terbaru: *${statusLabel}*
+${extraInfo}
+
+_Pesan ini dikirim secara otomatis oleh sistem_
+`.trim();
 }
 
 export function formatDeliveryCompleteNotification(order: Order, courier: User): string {

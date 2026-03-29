@@ -148,9 +148,13 @@ router.post('/', authMiddleware, adminMiddleware, async (c) => {
         // ─────────────────────────────────────────────────
 
         const { variants: variantsData, images: imagesData, ...productData } = body;
+        
+        // Use crypto-based random hex (8 chars) + slug for new products to maintain uniqueness while being SEO-friendly
+        const newId = `p-${crypto.randomUUID().split('-')[0]}-${slug}`;
 
         const [newProduct] = await db.insert(products).values({
             ...productData,
+            id: newId,
             storeId: store.id,
             slug,
             image,

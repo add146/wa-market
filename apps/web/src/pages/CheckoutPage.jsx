@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckoutPageLayout } from '../components/templates'
 import {
@@ -22,7 +22,8 @@ function CheckoutPage() {
     const { items: cartItems, clearCart } = useCart()
     const { user } = useAuth()
     const { data: whatsappKasir } = useSetting('whatsapp_kasir')
-    const { data: rajaongkirEnabled, isLoading: loadingRajaongkirSetting } = useSetting('rajaongkir_enabled')
+    const { data: rajaongkirEnabled } = useSetting('rajaongkir_enabled')
+    const { data: rajaongkirTier } = useSetting('rajaongkir_tier')
 
     // Check if RajaOngkir is enabled
     const isRajaOngkirEnabled = rajaongkirEnabled === 'true' || rajaongkirEnabled === true
@@ -68,14 +69,12 @@ function CheckoutPage() {
         }
     }, [user])
 
-    // RajaOngkir Dropdown state for destination
-    const [provinces, setProvinces] = useState([])
-    const [cities, setCities] = useState([])
-    const [subdistricts, setSubdistricts] = useState([])
-    const [loadingRajaongkirData, setLoadingRajaongkirData] = useState(false)
-    const [selectedProvinceId, setSelectedProvinceId] = useState('')
-    const [selectedCityId, setSelectedCityId] = useState('')
-    const [selectedSubdistrictId, setSelectedSubdistrictId] = useState('')
+    // RajaOngkir Autocomplete state for destination
+    const [searchTerm, setSearchTerm] = useState('')
+    const [searchResults, setSearchResults] = useState([])
+    const [isSearchingLocation, setIsSearchingLocation] = useState(false)
+    const [showLocationDropdown, setShowLocationDropdown] = useState(false)
+    const searchRef = useRef(null)
     const [selectedDestination, setSelectedDestination] = useState(null)
 
     // Shipping/Courier state
@@ -233,74 +232,45 @@ function CheckoutPage() {
         setShippingDiscount(bestDiscount)
     }, [shippingDiscountOptions, subtotal, shippingCost, selectedCourier])
 
-    // Fetch RajaOngkir Provinces on Load
+    // Close RajaOngkir dropdown on outside click
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (searchRef.current && !searchRef.current.contains(event.target)) {
+                setShowLocationDropdown(false)
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside)
+        return () => document.removeEventListener("mousedown", handleClickOutside)
+    }, [])
+
+    // Debounced Search for RajaOngkir Destination
     useEffect(() => {
         if (!isRajaOngkirEnabled) return
         
-        const fetchProvinces = async () => {
-            try {
-                const res = await rajaongkirApi.getProvinces()
-                setProvinces(res.data?.data || [])
-            } catch (error) {
-                console.error('Failed to fetch provinces', error)
-            }
-        }
-        fetchProvinces()
-    }, [isRajaOngkirEnabled])
-
-    // Fetch Cities when Province changes
-    useEffect(() => {
-        if (!selectedProvinceId) {
-            setCities([])
-            return
-        }
-        const fetchCities = async () => {
-            setLoadingRajaongkirData(true)
-            try {
-                const res = await rajaongkirApi.getCities(selectedProvinceId)
-                setCities(res.data?.data || [])
-            } catch (error) {
-                console.error('Failed to fetch cities', error)
-            } finally {
-                setLoadingRajaongkirData(false)
-            }
-        }
-        fetchCities()
-    }, [selectedProvinceId])
-
-    // Fetch Subdistricts when City changes
-    useEffect(() => {
-        if (!selectedCityId) {
-            setSubdistricts([])
-            return
-        }
-        const fetchSubdistricts = async () => {
-            setLoadingRajaongkirData(true)
-            try {
-                const res = await rajaongkirApi.getDistricts(selectedCityId)
-                // If it fails with 400 (Starter tier), API will return error, safe to ignore/empty
-                if (res.data?.data) {
-                    setSubdistricts(res.data.data)
-                } else {
-                    setSubdistricts([])
+        const delayDebounceFn = setTimeout(async () => {
+            if (searchTerm.length >= 3) {
+                setIsSearchingLocation(true)
+                try {
+                    const res = await rajaongkirApi.searchDestination(searchTerm)
+                    setSearchResults(res.data?.data || [])
+                    setShowLocationDropdown(true)
+                } catch (error) {
+                    console.error('Failed to search destination', error)
+                } finally {
+                    setIsSearchingLocation(false)
                 }
-            } catch (error) {
-                console.error('Failed to fetch subdistricts', error)
-                setSubdistricts([])
-            } finally {
-                setLoadingRajaongkirData(false)
+            } else {
+                setSearchResults([])
+                setShowLocationDropdown(false)
             }
-        }
-        fetchSubdistricts()
-    }, [selectedCityId])
+        }, 500)
+
+        return () => clearTimeout(delayDebounceFn)
+    }, [searchTerm, isRajaOngkirEnabled])
 
     // Calculate shipping when destination is selected
     const calculateShipping = async () => {
-        // Find highest granularity destination selected
-        let destId = selectedSubdistrictId || selectedCityId;
-        if (!destId) return;
-
-        let destType = selectedSubdistrictId ? 'subdistrict' : 'city';
+        if (!selectedDestination || !selectedDestination.id) return;
 
         setIsLoadingShipping(true)
         setShippingError('')
@@ -308,8 +278,8 @@ function CheckoutPage() {
 
         try {
             const response = await rajaongkirApi.calculateCost({
-                destination: destId,
-                destinationType: destType,
+                destination: selectedDestination.id,
+                destinationType: 'subdistrict', // Komerce destination ID can be city or district, but backend handles it
                 weight: totalWeight || 1000
             })
 
@@ -393,7 +363,7 @@ function CheckoutPage() {
                     return
                 }
                 // Only require destination for RajaOngkir couriers (not fixed cost)
-                if (!selectedCourier.isFixed && !(selectedSubdistrictId || selectedCityId)) {
+                if ((!selectedCourier || !selectedCourier.isFixed) && !selectedDestination) {
                     setSubmitError('Harap pilih tujuan pengiriman untuk kurir RajaOngkir')
                     return
                 }
@@ -410,9 +380,9 @@ function CheckoutPage() {
             const deliveryLat = gpsLocation?.lat ?? selectedGeocode?.lat ?? null
             const deliveryLng = gpsLocation?.lng ?? selectedGeocode?.lng ?? null
 
-            const provName = provinces.find(p => String(p.province_id) === String(selectedProvinceId))?.province || '';
-            const cityName = cities.find(c => String(c.city_id) === String(selectedCityId))?.city_name || '';
-            const subName = subdistricts.find(s => String(s.subdistrict_id) === String(selectedSubdistrictId))?.subdistrict_name || '';
+            const provName = selectedDestination?.province_name || '';
+            const cityName = selectedDestination?.city_name || '';
+            const subName = selectedDestination?.subdistrict_name !== '-' ? selectedDestination?.subdistrict_name : selectedDestination?.district_name || '';
 
             const orderData = {
                 recipientName,
@@ -535,94 +505,8 @@ function CheckoutPage() {
                                 </div>
                             )}
 
-                            {/* Destination Selection - Only show if RajaOngkir is enabled AND not numeric */}
-                            {isRajaOngkirEnabled && !isOnlyDigital && (
-                                <div className="space-y-4">
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tujuan Pengiriman</label>
-                                    
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-500 mb-1">Provinsi</label>
-                                        <select
-                                            value={selectedProvinceId}
-                                            onChange={(e) => {
-                                                setSelectedProvinceId(e.target.value)
-                                                setSelectedCityId('')
-                                                setSelectedSubdistrictId('')
-                                                setCouriers([])
-                                                setSelectedCourier(null)
-                                            }}
-                                            className={inputClass}
-                                        >
-                                            <option value="">Pilih Provinsi...</option>
-                                            {provinces.map(p => (
-                                                <option key={p.province_id} value={p.province_id}>{p.province}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-500 mb-1">Kota/Kabupaten</label>
-                                        <select
-                                            value={selectedCityId}
-                                            onChange={(e) => {
-                                                setSelectedCityId(e.target.value)
-                                                setSelectedSubdistrictId('')
-                                                setCouriers([])
-                                                setSelectedCourier(null)
-                                            }}
-                                            disabled={!selectedProvinceId || loadingRajaongkirData}
-                                            className={inputClass}
-                                        >
-                                            <option value="">Pilih Kota/Kabupaten...</option>
-                                            {cities.map(c => (
-                                                <option key={c.city_id} value={c.city_id}>{c.type} {c.city_name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    {/* Subdistrict Dropdown - Only display if tier provides subdistricts */}
-                                    {subdistricts.length > 0 && (
-                                        <div>
-                                            <label className="block text-xs font-medium text-slate-500 mb-1">Kecamatan</label>
-                                            <select
-                                                value={selectedSubdistrictId}
-                                                onChange={(e) => {
-                                                    setSelectedSubdistrictId(e.target.value)
-                                                    setCouriers([])
-                                                    setSelectedCourier(null)
-                                                }}
-                                                disabled={!selectedCityId || loadingRajaongkirData}
-                                                className={inputClass}
-                                            >
-                                                <option value="">Pilih Kecamatan...</option>
-                                                {subdistricts.map(s => (
-                                                    <option key={s.subdistrict_id} value={s.subdistrict_id}>{s.subdistrict_name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
-
-                                    {loadingRajaongkirData && (
-                                        <p className="text-xs text-slate-400">Sedang memuat data wilayah...</p>
-                                    )}
-
-                                    {/* Cek Ongkir Button */}
-                                    {(selectedSubdistrictId || (selectedCityId && subdistricts.length === 0)) && (
-                                        <button
-                                            type="button"
-                                            onClick={calculateShipping}
-                                            disabled={isLoadingShipping || loadingRajaongkirData}
-                                            className={`w-full py-3 bg-primary/10 text-primary font-semibold rounded-xl hover:bg-primary/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2`}
-                                        >
-                                            <Icon name="local_shipping" size={20} />
-                                            {isLoadingShipping ? 'Menghitung ongkir...' : 'Cek Ongkos Kirim'}
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Alamat Lengkap</label>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Alamat Lengkap (Beserta Nomor/Patokan)</label>
                                 <textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Nama jalan, nomor rumah, RT/RW, dll" rows={3} className={inputClass} />
                             </div>
                         </div>
@@ -666,26 +550,28 @@ function CheckoutPage() {
                                     </div>
                                 </button>
                             )}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShippingType('expedition')
-                                    setGpsLocation(null)
-                                    setGpsError('')
-                                }}
-                                className={`p-4 rounded-xl border-2 transition-all text-left ${shippingType === 'expedition'
-                                    ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                                    : 'border-slate-200 dark:border-slate-600 hover:border-primary/50'
-                                }`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <span className="text-2xl">📦</span>
-                                    <div>
-                                        <p className="font-bold text-slate-900 dark:text-white">Jasa Paket</p>
-                                        <p className="text-xs text-slate-500">JNE, J&T, SiCepat, dll</p>
+                            {(isRajaOngkirEnabled || fixedCostOptions.length > 0) && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShippingType('expedition')
+                                        setGpsLocation(null)
+                                        setGpsError('')
+                                    }}
+                                    className={`p-4 rounded-xl border-2 transition-all text-left ${shippingType === 'expedition'
+                                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                                        : 'border-slate-200 dark:border-slate-600 hover:border-primary/50'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-2xl">📦</span>
+                                        <div>
+                                            <p className="font-bold text-slate-900 dark:text-white">Jasa Paket</p>
+                                            <p className="text-xs text-slate-500">JNE, J&T, SiCepat, dll</p>
+                                        </div>
                                     </div>
-                                </div>
-                            </button>
+                                </button>
+                            )}
                         </div>
 
                         {/* ─── Own Courier: Share Location ─── */}
@@ -1044,6 +930,101 @@ function CheckoutPage() {
                     {/* ─── Expedition Shipping Options ─── */}
                     {shippingType === 'expedition' && (
                         <>
+                    {/* Destination Selection - Only show if RajaOngkir is enabled */}
+                    {isRajaOngkirEnabled && !isOnlyDigital && (
+                        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 mb-6">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                                <Icon name="location_on" size={20} className="text-primary" />
+                                Lokasi Tujuan Pengiriman
+                            </h3>
+                            <div className="space-y-4">
+                                <div ref={searchRef} className="relative">
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <Icon name="search" size={18} className="text-slate-400" />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            onFocus={() => {
+                                                if (searchResults.length > 0) setShowLocationDropdown(true);
+                                            }}
+                                            placeholder={rajaongkirTier === 'pro' ? "Ketik nama Kecamatan atau Kota..." : "Ketik nama Kota / Kabupaten..."}
+                                            className={`${inputClass} pl-10`}
+                                        />
+                                        {isSearchingLocation && (
+                                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                <Icon name="progress_activity" size={18} className="text-slate-400 animate-spin" />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Selected Value Display */}
+                                    {selectedDestination && !showLocationDropdown && (
+                                        <div className="mt-2 p-3 bg-primary/10 border border-primary/20 rounded-lg flex justify-between items-center">
+                                            <div>
+                                                <p className="text-xs text-primary font-semibold mb-0.5">Tujuan Terpilih:</p>
+                                                <p className="text-sm font-medium text-slate-800 dark:text-white">
+                                                    {selectedDestination.label}
+                                                </p>
+                                            </div>
+                                            <button 
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedDestination(null);
+                                                    setSearchTerm('');
+                                                    setCouriers([]);
+                                                    setSelectedCourier(null);
+                                                }}
+                                                className="text-slate-400 hover:text-red-500 transition-colors"
+                                            >
+                                                <Icon name="close" size={20} />
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Autocomplete Dropdown */}
+                                    {showLocationDropdown && searchResults.length > 0 && (
+                                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                            <ul className="py-1 text-sm text-slate-700 dark:text-slate-200">
+                                                {searchResults.map((loc) => (
+                                                    <li
+                                                        key={loc.id}
+                                                        onClick={() => {
+                                                            setSelectedDestination(loc);
+                                                            setSearchTerm('');
+                                                            setShowLocationDropdown(false);
+                                                            setCouriers([]);
+                                                            setSelectedCourier(null);
+                                                        }}
+                                                        className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+                                                    >
+                                                        <div className="font-medium text-slate-900 dark:text-white">{loc.subdistrict_name !== '-' ? loc.subdistrict_name : loc.district_name}</div>
+                                                        <div className="text-xs text-slate-500 truncate">{loc.label}</div>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Cek Ongkir Button */}
+                                {(selectedDestination && selectedDestination.id) && (
+                                    <button
+                                        type="button"
+                                        onClick={calculateShipping}
+                                        disabled={isLoadingShipping || isSearchingLocation}
+                                        className={`w-full py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2`}
+                                    >
+                                        <Icon name="local_shipping" size={20} />
+                                        {isLoadingShipping ? 'Menghitung ongkir...' : 'Cek Biaya Ongkos Kirim'}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Fixed Cost Shipping Options */}
                     {fixedCostOptions.length > 0 && (
                         <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">

@@ -121,7 +121,7 @@ function ProductDetailPage() {
     const rating = product.reviews?.summary?.averageRating || 5
     const reviewCount = product.reviews?.summary?.count || 0
 
-    const { addToCart } = useCart()
+    const { addToCart, showNotification } = useCart()
 
     const handleAddToCart = () => {
         const variantInfo = [selectedColor, selectedSize].filter(Boolean).join(', ')
@@ -149,6 +149,34 @@ function ProductDetailPage() {
         )
         const waNumber = whatsappCS || '6281234567890'
         window.open(`https://wa.me/${waNumber}?text=${message}`, '_blank')
+    }
+
+    const handleShare = async () => {
+        const shareText = `Coba cek produk ini, deh. Harganya Rp${adjustedPrice.toLocaleString('id-ID')} aja!`;
+        const shareUrl = window.location.href;
+        
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: product.name,
+                    text: shareText,
+                    url: shareUrl
+                });
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Error sharing', error);
+                }
+            }
+        } else {
+            // Fallback for desktop/unsupported browsers
+            try {
+                await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+                if (showNotification) showNotification('Tautan berhasil disalin!');
+                else alert('Tautan berhasil disalin!');
+            } catch (error) {
+                console.error('Copy failed', error);
+            }
+        }
     }
 
     return (
@@ -215,6 +243,7 @@ function ProductDetailPage() {
                         onChatWhatsApp={handleChatWhatsApp}
                         isWishlisted={isWishlisted(product.id)}
                         onWishlistToggle={handleWishlistToggle}
+                        onShare={handleShare}
                     />
 
                     {/* Info Sections */}

@@ -3,7 +3,7 @@ import { getDb } from '../db';
 import { orders, orderItems, products, storeSettings, users, courierDeliveries } from '../db/schema';
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { authMiddleware, optionalAuthMiddleware, hashPassword } from '../middleware/auth';
-import { formatOrderMessage, sendWahaMessage, generateWhatsAppUrl, formatCourierNotification, formatDigitalDeliveryMessage } from '../lib/whatsapp';
+import { formatOrderMessage, sendWahaMessage, generateWhatsAppUrl, formatCourierNotification, formatDigitalDeliveryMessage, formatStatusChangeNotification } from '../lib/whatsapp';
 import type { Env } from '../index';
 
 type Variables = { store: any, user: any };
@@ -30,9 +30,15 @@ router.get('/', authMiddleware, async (c) => {
         const store = c.get('store');
         const user: any = c.get('user');
         
+        const userIdParam = c.req.query('userId');
+
         let query;
         if (user.role === 'admin' || user.role === 'superadmin') {
-            query = db.select().from(orders).where(eq(orders.storeId, store.id))
+            let whereCond = eq(orders.storeId, store.id);
+            if (userIdParam) {
+                whereCond = and(whereCond, eq(orders.userId, userIdParam)) as any;
+            }
+            query = db.select().from(orders).where(whereCond)
                 .orderBy(desc(orders.createdAt)).limit(20);
         } else {
             query = db.select().from(orders).where(
@@ -42,6 +48,27 @@ router.get('/', authMiddleware, async (c) => {
         
         const result = await query;
         return c.json({ orders: result });
+    } catch (e) {
+        return c.json({ error: 'Internal Error' }, 500);
+    }
+});
+
+router.get('/:id/items', authMiddleware, async (c) => {
+    try {
+        const db = getDb(c.env);
+        const store = c.get('store');
+        const orderId = c.req.param('id') as string;
+        
+        if (!orderId) return c.json({ error: 'Order ID is required' }, 400);
+
+        // Verify order belongs to store
+        const [order] = await db.select().from(orders).where(
+            and(eq(orders.id, orderId), eq(orders.storeId, store.id))
+        );
+        if (!order) return c.json({ error: 'Order not found' }, 404);
+
+        const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+        return c.json({ items });
     } catch (e) {
         return c.json({ error: 'Internal Error' }, 500);
     }
@@ -109,7 +136,8 @@ router.post('/', optionalAuthMiddleware, async (c) => {
                     phone: cleanPhone,
                     password: hashedPwd,
                     name: body.recipientName || 'Pelanggan',
-                    role: 'customer'
+                    role: 'customer',
+                    initialPassword: generatedPassword
                 }).returning();
                 orderUserId = newUser.id;
             }
@@ -243,17 +271,30 @@ router.post('/:id/assign-courier', authMiddleware, async (c) => {
         const [existingDelivery] = await db.select().from(courierDeliveries).where(
             and(eq(courierDeliveries.orderId, orderId))
         );
+        
+        let delivery;
         if (existingDelivery) {
-            return c.json({ error: 'Order already has a courier assigned' }, 400);
+            // Update existing delivery
+            const updated = await db.update(courierDeliveries).set({
+                courierId: courierId,
+                status: 'assigned',
+                pickedUpAt: null,
+                deliveredAt: null,
+                notes: null,
+                photoUrl: null,
+                assignedAt: new Date()
+            }).where(eq(courierDeliveries.id, existingDelivery.id)).returning();
+            delivery = updated[0];
+        } else {
+            // Create Delivery Record
+            const inserted = await db.insert(courierDeliveries).values({
+                storeId: store.id,
+                orderId: orderId,
+                courierId: courierId,
+                status: 'assigned'
+            }).returning();
+            delivery = inserted[0];
         }
-
-        // Create Delivery Record
-        const [delivery] = await db.insert(courierDeliveries).values({
-            storeId: store.id,
-            orderId: orderId,
-            courierId: courierId,
-            status: 'assigned'
-        }).returning();
 
         // Update order status
         await db.update(orders).set({ status: 'on_delivery' }).where(eq(orders.id, orderId));
@@ -374,6 +415,109 @@ router.patch('/:id/deliver-digital', authMiddleware, async (c) => {
 
     } catch (e) {
         console.error('Deliver digital error:', e);
+        return c.json({ error: 'Internal Error' }, 500);
+    }
+});
+
+/**
+ * PATCH /api/s/:slug/orders/:id/status (Admin)
+ */
+router.patch('/:id/status', authMiddleware, async (c) => {
+    try {
+        const db = getDb(c.env);
+        const store = c.get('store');
+        const user: any = c.get('user');
+        const orderId = c.req.param('id') as string;
+        const body = await c.req.json();
+        const { status } = body;
+
+        if (user.role !== 'admin' && user.role !== 'superadmin' && user.role !== 'seller') {
+            return c.json({ error: 'Forbidden' }, 403);
+        }
+
+        const [order] = await db.select().from(orders).where(
+            and(eq(orders.id, orderId), eq(orders.storeId, store.id))
+        );
+        if (!order) return c.json({ error: 'Order not found' }, 404);
+
+        await db.update(orders).set({ status }).where(eq(orders.id, orderId));
+
+        // Send WhatsApp notification for status change
+        const allSettings = await db.select().from(storeSettings).where(eq(storeSettings.storeId, store.id));
+        const getConfig = (key: string) => allSettings.find(s => s.key === key)?.value || '';
+        const storeName = getConfig('store_name') || store.name;
+        
+        const wahaUrl = getConfig('waha_server_url');
+        const wahaKey = getConfig('waha_api_key');
+        const wahaSession = getConfig('waha_session') || 'default';
+
+        let whatsappSent = false;
+        let whatsappUrl = '';
+
+        if (order.recipientPhone) {
+            const updatedOrder = { ...order, status };
+            const message = formatStatusChangeNotification(updatedOrder as any, storeName);
+            
+            if (wahaUrl && wahaUrl.trim() !== '') {
+                whatsappSent = await sendWahaMessage(wahaUrl, wahaKey, wahaSession, order.recipientPhone, message);
+            }
+            whatsappUrl = generateWhatsAppUrl(order.recipientPhone, message);
+        }
+
+        return c.json({ success: true, whatsappSent, whatsappUrl });
+    } catch (e) {
+        console.error('Update status error:', e);
+        return c.json({ error: 'Internal Error' }, 500);
+    }
+});
+
+/**
+ * PATCH /api/s/:slug/orders/:id/approve (Admin)
+ */
+router.patch('/:id/approve', authMiddleware, async (c) => {
+    try {
+        const db = getDb(c.env);
+        const store = c.get('store');
+        const user: any = c.get('user');
+        const orderId = c.req.param('id') as string;
+
+        if (user.role !== 'admin' && user.role !== 'superadmin') {
+            return c.json({ error: 'Forbidden' }, 403);
+        }
+
+        await db.update(orders).set({ status: 'approved' }).where(
+            and(eq(orders.id, orderId), eq(orders.storeId, store.id))
+        );
+
+        return c.json({ success: true });
+    } catch (e) {
+        return c.json({ error: 'Internal Error' }, 500);
+    }
+});
+
+/**
+ * DELETE /api/s/:slug/orders/:id (Admin)
+ */
+router.delete('/:id', authMiddleware, async (c) => {
+    try {
+        const db = getDb(c.env);
+        const store = c.get('store');
+        const user: any = c.get('user');
+        const orderId = c.req.param('id') as string;
+
+        if (user.role !== 'admin' && user.role !== 'superadmin') {
+            return c.json({ error: 'Forbidden' }, 403);
+        }
+
+        // Delete items first
+        await db.delete(orderItems).where(eq(orderItems.orderId, orderId));
+        // Delete order
+        await db.delete(orders).where(
+            and(eq(orders.id, orderId), eq(orders.storeId, store.id))
+        );
+
+        return c.json({ success: true });
+    } catch (e) {
         return c.json({ error: 'Internal Error' }, 500);
     }
 });

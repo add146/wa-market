@@ -66,7 +66,7 @@ async function nominatimSearch(query) {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&countrycodes=id`
     const response = await fetch(url, {
         headers: {
-            'User-Agent': 'WaMarket/1.0 (https://unikasik.com)'
+            'User-Agent': 'WaMarket/1.0 (https://warung.my.id)'
         }
     })
     const data = await response.json()

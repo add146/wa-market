@@ -204,9 +204,7 @@ export const uploadApi = {
 
 // RajaOngkir Shipping API
 export const rajaongkirApi = {
-    getProvinces: () => api.get('/shipping/provinces'),
-    getCities: (provinceId) => api.get(`/shipping/cities/${provinceId}`),
-    getDistricts: (cityId) => api.get(`/shipping/districts/${cityId}`),
+    searchDestination: (query) => api.get(`/shipping/search?q=${encodeURIComponent(query)}`),
     calculateCost: (data) => api.post('/shipping/calculate', data),
     getCouriers: () => api.get('/shipping/couriers'),
 };

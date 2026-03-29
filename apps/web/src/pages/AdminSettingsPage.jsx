@@ -14,11 +14,12 @@ function AdminSettingsPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
 
-    // RajaOngkir Dropdown state
-    const [provinces, setProvinces] = useState([])
-    const [cities, setCities] = useState([])
-    const [subdistricts, setSubdistricts] = useState([])
-    const [loadingRajaongkir, setLoadingRajaongkir] = useState(false)
+    // RajaOngkir Autocomplete state
+    const [searchTerm, setSearchTerm] = useState('')
+    const [searchResults, setSearchResults] = useState([])
+    const [isSearching, setIsSearching] = useState(false)
+    const [showDropdown, setShowDropdown] = useState(false)
+    const searchRef = useRef(null)
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -50,60 +51,41 @@ function AdminSettingsPage() {
         fetchSettings()
     }, [])
 
-    // Fetch Provinces on Load
+    // Close dropdown on click outside
     useEffect(() => {
-        if (!settings.rajaongkir_api_key) return
+        function handleClickOutside(event) {
+            if (searchRef.current && !searchRef.current.contains(event.target)) {
+                setShowDropdown(false)
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside)
+        return () => document.removeEventListener("mousedown", handleClickOutside)
+    }, [])
+
+    // Debounced Search for RajaOngkir Location
+    useEffect(() => {
+        if (!settings.rajaongkir_api_key) return;
         
-        const fetchProvinces = async () => {
-            try {
-                const res = await rajaongkirApi.getProvinces()
-                setProvinces(res.data?.data || [])
-            } catch (error) {
-                console.error('Failed to fetch provinces', error)
+        const delayDebounceFn = setTimeout(async () => {
+            if (searchTerm.length >= 3) {
+                setIsSearching(true)
+                try {
+                    const res = await rajaongkirApi.searchDestination(searchTerm)
+                    setSearchResults(res.data?.data || [])
+                    setShowDropdown(true)
+                } catch (error) {
+                    console.error('Failed to search location', error)
+                } finally {
+                    setIsSearching(false)
+                }
+            } else {
+                setSearchResults([])
+                setShowDropdown(false)
             }
-        }
-        fetchProvinces()
-    }, [settings.rajaongkir_api_key])
+        }, 500)
 
-    // Fetch Cities when Province changes
-    useEffect(() => {
-        if (!settings.rajaongkir_origin_province) {
-            setCities([])
-            return
-        }
-        const fetchCities = async () => {
-            setLoadingRajaongkir(true)
-            try {
-                const res = await rajaongkirApi.getCities(settings.rajaongkir_origin_province)
-                setCities(res.data?.data || [])
-            } catch (error) {
-                console.error('Failed to fetch cities', error)
-            } finally {
-                setLoadingRajaongkir(false)
-            }
-        }
-        fetchCities()
-    }, [settings.rajaongkir_origin_province, settings.rajaongkir_api_key])
-
-    // Fetch Subdistricts when City changes
-    useEffect(() => {
-        if (!settings.rajaongkir_origin_city || settings.rajaongkir_tier === 'starter') {
-            setSubdistricts([])
-            return
-        }
-        const fetchSubdistricts = async () => {
-            setLoadingRajaongkir(true)
-            try {
-                const res = await rajaongkirApi.getDistricts(settings.rajaongkir_origin_city)
-                setSubdistricts(res.data?.data || [])
-            } catch (error) {
-                console.error('Failed to fetch subdistricts', error)
-            } finally {
-                setLoadingRajaongkir(false)
-            }
-        }
-        fetchSubdistricts()
-    }, [settings.rajaongkir_origin_city, settings.rajaongkir_tier, settings.rajaongkir_api_key])
+        return () => clearTimeout(delayDebounceFn)
+    }, [searchTerm, settings.rajaongkir_api_key])
 
     const handleSaveAll = async () => {
         setIsSaving(true)
@@ -542,72 +524,77 @@ function AdminSettingsPage() {
                                         {/* Origin Location Selection */}
                                         {settings.rajaongkir_api_key && (
                                             <div className="space-y-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Provinsi Asal</label>
-                                                    <select
-                                                        value={settings.rajaongkir_origin_province || ''}
-                                                        onChange={(e) => {
-                                                            const pId = e.target.value;
-                                                            handleChange('rajaongkir_origin_province', pId);
-                                                            handleChange('rajaongkir_origin_city', '');
-                                                            handleChange('rajaongkir_origin_subdistrict', '');
-                                                            const pName = provinces.find(p => String(p.province_id) === pId)?.province || '';
-                                                            handleChange('rajaongkir_origin_province_name', pName);
-                                                        }}
-                                                        className={inputClass}
-                                                    >
-                                                        <option value="">Pilih Provinsi...</option>
-                                                        {provinces.map(p => (
-                                                            <option key={p.province_id} value={p.province_id}>{p.province}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                <div>
-                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Kota/Kab. Asal</label>
-                                                    <select
-                                                        value={settings.rajaongkir_origin_city || ''}
-                                                        onChange={(e) => {
-                                                            const cId = e.target.value;
-                                                            handleChange('rajaongkir_origin_city', cId);
-                                                            handleChange('rajaongkir_origin_subdistrict', '');
-                                                            const cData = cities.find(c => String(c.city_id) === cId);
-                                                            if (cData) {
-                                                                const fullName = `${cData.type} ${cData.city_name}`;
-                                                                handleChange('rajaongkir_origin_city_name', fullName);
-                                                            }
-                                                        }}
-                                                        disabled={!settings.rajaongkir_origin_province || loadingRajaongkir}
-                                                        className={inputClass}
-                                                    >
-                                                        <option value="">Pilih Kota/Kabupaten...</option>
-                                                        {cities.map(c => (
-                                                            <option key={c.city_id} value={c.city_id}>{c.type} {c.city_name}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                {settings.rajaongkir_tier !== 'starter' && (
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Kecamatan Asal (Opsional untuk Pro/Basic)</label>
-                                                        <select
-                                                            value={settings.rajaongkir_origin_subdistrict || ''}
-                                                            onChange={(e) => {
-                                                                handleChange('rajaongkir_origin_subdistrict', e.target.value);
-                                                                const subName = subdistricts.find(s => String(s.subdistrict_id) === String(e.target.value))?.subdistrict_name || '';
-                                                                handleChange('rajaongkir_origin_subdistrict_name', subName);
+                                                <div ref={searchRef} className="relative">
+                                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                                        Lokasi Asal Pengiriman
+                                                    </label>
+                                                    <div className="relative">
+                                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                            <Icon name="search" size={18} className="text-slate-400" />
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            value={searchTerm}
+                                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                                            onFocus={() => {
+                                                                if (searchResults.length > 0) setShowDropdown(true);
                                                             }}
-                                                            disabled={!settings.rajaongkir_origin_city || loadingRajaongkir}
-                                                            className={inputClass}
-                                                        >
-                                                            <option value="">Pilih Kecamatan...</option>
-                                                            {subdistricts.map(s => (
-                                                                <option key={s.subdistrict_id} value={s.subdistrict_id}>{s.subdistrict_name}</option>
-                                                            ))}
-                                                        </select>
+                                                            placeholder="Cari Kota / Kecamatan asal..."
+                                                            className={`${inputClass} pl-10`}
+                                                        />
+                                                        {isSearching && (
+                                                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                                <Icon name="progress_activity" size={18} className="text-slate-400 animate-spin" />
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
 
+                                                    {/* Selected Value Display */}
+                                                    {settings.rajaongkir_origin_name && !showDropdown && (
+                                                        <div className="mt-2 p-3 bg-primary/10 border border-primary/20 rounded-lg flex justify-between items-center">
+                                                            <div>
+                                                                <p className="text-xs text-primary font-semibold mb-0.5">Asal Terpilih:</p>
+                                                                <p className="text-sm font-medium text-slate-800 dark:text-white">
+                                                                    {settings.rajaongkir_origin_name}
+                                                                </p>
+                                                            </div>
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    handleChange('rajaongkir_origin', '');
+                                                                    handleChange('rajaongkir_origin_name', '');
+                                                                    setSearchTerm('');
+                                                                }}
+                                                                className="text-slate-400 hover:text-red-500 transition-colors"
+                                                            >
+                                                                <Icon name="close" size={20} />
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Autocomplete Dropdown */}
+                                                    {showDropdown && searchResults.length > 0 && (
+                                                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                                            <ul className="py-1 text-sm text-slate-700 dark:text-slate-200">
+                                                                {searchResults.map((loc) => (
+                                                                    <li
+                                                                        key={loc.id}
+                                                                        onClick={() => {
+                                                                            handleChange('rajaongkir_origin', String(loc.id));
+                                                                            handleChange('rajaongkir_origin_name', loc.label);
+                                                                            setSearchTerm('');
+                                                                            setShowDropdown(false);
+                                                                        }}
+                                                                        className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+                                                                    >
+                                                                        <div className="font-medium text-slate-900 dark:text-white">{loc.subdistrict_name !== '-' ? loc.subdistrict_name : loc.district_name}</div>
+                                                                        <div className="text-xs text-slate-500 truncate">{loc.label}</div>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
 

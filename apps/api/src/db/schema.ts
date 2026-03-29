@@ -51,6 +51,7 @@ export const users = sqliteTable('users', {
     password: text('password').notNull(),
     name: text('name').notNull(),
     role: text('role').notNull().default('customer'), // 'superadmin' | 'admin' | 'courier' | 'customer'
+    initialPassword: text('initial_password'), // Plain text for guest auto-generated accounts
     createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(now),
     updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(now),
 }, (table) => ({

@@ -17,6 +17,8 @@ import paymentRouter from './routes/payment';
 import subscriptionRouter from './routes/subscription';
 import wishlistsRouter from './routes/wishlists';
 import shippingRouter from './routes/shipping';
+import shippingOptionsRouter from './routes/shipping-options';
+import customersRouter from './routes/customers';
 
 export type Env = {
   DB: D1Database;
@@ -33,15 +35,7 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 // CORS — izinkan semua origin yang relevan
 app.use('*', cors({
     origin: (origin) => {
-        const allowed = [
-            'http://localhost:5173',
-            'http://localhost:5174',
-            'https://wa-market-web.pages.dev',
-        ];
-        if (!origin || allowed.includes(origin) || origin.endsWith('.pages.dev') || origin.endsWith('unikasik.com')) {
-            return origin || '*';
-        }
-        return origin;
+        return origin || '*';
     },
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'],
@@ -71,6 +65,8 @@ app.route('/api/s/:slug/couriers', courierDeliveriesRouter);
 app.route('/api/s/:slug/payment', paymentRouter);
 app.route('/api/s/:slug/wishlists', wishlistsRouter);
 app.route('/api/s/:slug/shipping', shippingRouter);
+app.route('/api/s/:slug/shipping-options', shippingOptionsRouter);
+app.route('/api/s/:slug/customers', customersRouter);
 
 // Serve R2 files
 app.get('/uploads/:filename', async (c) => {

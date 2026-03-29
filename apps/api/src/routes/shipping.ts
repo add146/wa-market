@@ -24,137 +24,100 @@ const getRajaOngkirConfig = async (c: any) => {
         throw new Error('API Key RajaOngkir belum dikonfigurasi.');
     }
 
-    let baseUrl = 'https://api.rajaongkir.com/starter';
-    if (tier === 'basic') baseUrl = 'https://api.rajaongkir.com/basic';
-    if (tier === 'pro') baseUrl = 'https://pro.rajaongkir.com/api';
+    // RajaOngkir has migrated to Komerce
+    const baseUrl = 'https://rajaongkir.komerce.id/api/v1';
 
     let origin = '';
-    let originType = 'city';
     
     // Find origin from settings prioritized by tier
-    const subId = settings.find(s => s.key === 'rajaongkir_origin_subdistrict')?.value;
-    const cityId = settings.find(s => s.key === 'rajaongkir_origin_city')?.value;
+    const savedOrigin = settings.find(s => s.key === 'rajaongkir_origin')?.value;
     
-    if (tier !== 'starter' && subId) {
-        origin = subId;
-        originType = 'subdistrict';
-    } else if (cityId) {
-        origin = cityId;
-        originType = 'city';
+    if (savedOrigin) {
+        origin = savedOrigin;
     }
 
-    return { apiKey, baseUrl, tier, origin, originType };
+    return { apiKey, baseUrl, tier, origin };
 };
 
-// 1. GET /provinces -> Fetch Provinces
-router.get('/provinces', async (c) => {
+// GET /search?q=... -> Proxy to Komerce search
+router.get('/search', async (c) => {
     try {
+        const q = c.req.query('q');
+        if (!q || q.length < 3) return c.json({ data: [] });
+        
         const { apiKey, baseUrl } = await getRajaOngkirConfig(c);
-        const response = await fetch(`${baseUrl}/province`, {
+        
+        const response = await fetch(`${baseUrl}/destination/domestic-destination?search=${encodeURIComponent(q)}`, {
             headers: { 'key': apiKey }
         });
         const data: any = await response.json();
         
-        if (data.rajaongkir.status.code !== 200) {
-            return c.json({ error: data.rajaongkir.status.description }, 400);
-        }
-        return c.json({ data: data.rajaongkir.results });
-    } catch (e: any) {
-        return c.json({ error: e.message || 'Server error' }, 500);
-    }
-});
-
-// 2. GET /cities/:provinceId -> Fetch Cities by Province
-router.get('/cities/:provinceId', async (c) => {
-    try {
-        const provinceId = c.req.param('provinceId');
-        const { apiKey, baseUrl } = await getRajaOngkirConfig(c);
-        const response = await fetch(`${baseUrl}/city?province=${provinceId}`, {
-            headers: { 'key': apiKey }
-        });
-        const data: any = await response.json();
-        
-        if (data.rajaongkir.status.code !== 200) {
-            return c.json({ error: data.rajaongkir.status.description }, 400);
-        }
-        return c.json({ data: data.rajaongkir.results });
-    } catch (e: any) {
-        return c.json({ error: e.message || 'Server error' }, 500);
-    }
-});
-
-// 3. GET /subdistricts/:cityId -> Fetch Subdistricts by City (Only Basic/Pro)
-router.get('/subdistricts/:cityId', async (c) => {
-    try {
-        const cityId = c.req.param('cityId');
-        const { apiKey, baseUrl, tier } = await getRajaOngkirConfig(c);
-        
-        if (tier === 'starter') {
-            return c.json({ error: 'Subdistrict tidak didukung oleh tipe akun Starter.' }, 400);
+        if (data.meta?.code !== 200) {
+            return c.json({ error: data.meta?.message || 'Gagal mencari lokasi' }, 400);
         }
 
-        const response = await fetch(`${baseUrl}/subdistrict?city=${cityId}`, {
-            headers: { 'key': apiKey }
-        });
-        const data: any = await response.json();
-        
-        if (data.rajaongkir.status.code !== 200) {
-            return c.json({ error: data.rajaongkir.status.description }, 400);
-        }
-        return c.json({ data: data.rajaongkir.results });
+        return c.json({ data: data.data || [] });
     } catch (e: any) {
         return c.json({ error: e.message || 'Server error' }, 500);
     }
 });
 
 // 4. POST /calculate -> Calculate Cost
-// body expects: { origin, originType, destination, destinationType, weight, courier }
 router.post('/calculate', async (c) => {
     try {
         const body = await c.req.json();
-        const { apiKey, baseUrl, origin, originType, tier } = await getRajaOngkirConfig(c);
+        const { apiKey, baseUrl, origin } = await getRajaOngkirConfig(c);
         
         if (!origin) {
             return c.json({ error: 'Lokasi asal pengiriman (Origin) belum dikonfigurasi oleh admin.' }, 400);
         }
 
-        // For starter, originType and destinationType are ignored, but for Pro/Basic it requires them.
-        const payload: any = {
-            origin: origin,
-            destination: body.destination,
-            weight: body.weight,
-        };
-        
-        // Add couriers if specified (frontend will normally send courier name, but rajaongkir v2 wants string like "jne:pos:tiki")
-        // But wait! frontend calls /calculate to get all couriers, so we might want to query all enabled ones.
-        // Let's get couriers from db:
+        // Get active couriers from db
         const db = getDb(c.env);
         const store = c.get('store');
         const settings = await db.select().from(storeSettings).where(eq(storeSettings.storeId, store.id));
         const activeCouriers = settings.find(s => s.key === 'rajaongkir_couriers')?.value || 'jne:sicepat:jnt';
-        
-        payload.courier = activeCouriers;
-        
-        if (tier !== 'starter') {
-            payload.originType = originType;
-            if (body.destinationType) payload.destinationType = body.destinationType;
+
+        // Komerce API uses separate request per courier
+        const courierList = activeCouriers.split(':');
+        let allResults: any[] = [];
+
+        for (const courierName of courierList) {
+            try {
+                const params = new URLSearchParams();
+                params.append('origin', String(origin));
+                params.append('destination', String(body.destination));
+                params.append('weight', String(body.weight || 1000));
+                params.append('courier', courierName);
+
+                const response = await fetch(`${baseUrl}/calculate/domestic-cost`, {
+                    method: 'POST',
+                    headers: {
+                        'key': apiKey,
+                        'content-type': 'application/x-www-form-urlencoded'
+                    },
+                    body: params
+                });
+
+                const data: any = await response.json();
+                if (data.meta?.code === 200 && data.data) {
+                    // Komerce response fields: name, code, service, description, cost, etd
+                    const formatted = data.data.map((res: any) => ({
+                        code: res.code,
+                        name: res.name,
+                        service: res.service,
+                        description: res.description,
+                        cost: Number(res.cost),
+                        etd: res.etd
+                    }));
+                    allResults = [...allResults, ...formatted];
+                }
+            } catch (err) {
+                console.error(`Error fetching ${courierName}:`, err);
+            }
         }
 
-        const response = await fetch(`${baseUrl}/cost`, {
-            method: 'POST',
-            headers: {
-                'key': apiKey,
-                'content-type': 'application/x-www-form-urlencoded'
-            },
-            body: new URLSearchParams(payload).toString()
-        });
-
-        const data: any = await response.json();
-        
-        if (data.rajaongkir.status.code !== 200) {
-            return c.json({ error: data.rajaongkir.status.description }, 400);
-        }
-        return c.json({ data: data.rajaongkir.results[0]?.costs || [] });
+        return c.json({ data: allResults });
     } catch (e: any) {
         return c.json({ error: e.message || 'Server error' }, 500);
     }

@@ -10,7 +10,8 @@ function ProductActions({
     onAddToCart,
     onChatWhatsApp,
     isWishlisted = false,
-    onWishlistToggle
+    onWishlistToggle,
+    onShare
 }) {
     return (
         <>
@@ -39,16 +40,26 @@ function ProductActions({
                     <Icon name="shopping_cart" size={20} />
                     Tambah
                 </button>
-                <button
-                    onClick={onWishlistToggle}
-                    className={`flex items-center justify-center gap-2 rounded-xl border-2 px-6 py-3.5 text-base font-bold transition-all sm:flex-none ${
-                        isWishlisted 
-                            ? 'border-red-500 bg-red-50 text-red-500 dark:bg-red-500/10' 
-                            : 'border-slate-200 bg-white text-slate-600 hover:border-red-200 hover:text-red-500 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-red-900/50'
-                    }`}
-                >
-                    <Icon name={isWishlisted ? "favorite" : "favorite_border"} size={20} />
-                </button>
+                <div className="flex gap-3 sm:flex-none">
+                    <button
+                        onClick={onWishlistToggle}
+                        title="Simpan ke Wishlist"
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 px-6 py-3.5 text-base font-bold transition-all ${
+                            isWishlisted 
+                                ? 'border-red-500 bg-red-50 text-red-500 dark:bg-red-500/10' 
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-red-200 hover:text-red-500 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-red-900/50'
+                        }`}
+                    >
+                        <Icon name={isWishlisted ? "favorite" : "favorite_border"} size={20} />
+                    </button>
+                    <button
+                        onClick={onShare}
+                        title="Bagikan Produk"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-500 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-blue-900/50 transition-all font-bold"
+                    >
+                        <Icon name="share" size={20} />
+                    </button>
+                </div>
                 <button
                     onClick={onChatWhatsApp}
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-primary bg-transparent px-6 py-3.5 text-base font-bold text-primary hover:bg-primary/5 transition-colors"

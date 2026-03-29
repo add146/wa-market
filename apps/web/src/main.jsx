@@ -25,7 +25,7 @@ const queryClient = new QueryClient({
 async function resolveDomain() {
     const hostname = window.location.hostname;
     // Known platform domains that don't need resolution
-    const platformDomains = ['localhost', '127.0.0.1', 'wa-market-web.pages.dev', 'wa-market.com', 'unikasik.com'];
+    const platformDomains = ['localhost', '127.0.0.1', 'wa-market-web.pages.dev', 'wa-market.com', 'warung.my.id'];
     
     // Check if we already have /s/ in URL
     const pathname = window.location.pathname;

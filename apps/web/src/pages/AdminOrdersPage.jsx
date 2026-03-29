@@ -499,12 +499,13 @@ function AdminOrdersPage() {
                         <div>
                             <div className="flex justify-between items-center mb-2">
                                 <h4 className="font-semibold text-slate-900 dark:text-white">🚚 Pengiriman</h4>
-                                {(selectedOrder.status === 'pending' || selectedOrder.status === 'approved') && isAdmin && selectedOrder.shippingType !== 'digital' && (
+                                {(selectedOrder.status === 'pending' || selectedOrder.status === 'approved' || selectedOrder.status === 'on_delivery') && isAdmin && selectedOrder.shippingType !== 'digital' && (
                                     <button
                                         onClick={() => openAssignModal(selectedOrder)}
                                         className="text-xs font-medium px-3 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors flex items-center gap-1"
                                     >
-                                        <Icon name="two_wheeler" size={14} /> Tugaskan Kurir
+                                        <Icon name="two_wheeler" size={14} /> 
+                                        {selectedOrder.status === 'on_delivery' ? 'Ganti Kurir' : 'Tugaskan Kurir'}
                                     </button>
                                 )}
                             </div>
