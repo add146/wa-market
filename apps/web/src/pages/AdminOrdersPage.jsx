@@ -61,6 +61,28 @@ function AdminOrdersPage() {
         }
     }
 
+    const getServiceStatusColor = (status) => {
+        switch (status) {
+            case 'waiting_dp': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+            case 'dp_paid': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+            case 'in_progress': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+            case 'awaiting_settlement': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+            case 'settled': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+            default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+        }
+    }
+
+    const getServiceStatusLabel = (status) => {
+        switch (status) {
+            case 'waiting_dp': return 'Menunggu DP'
+            case 'dp_paid': return 'DP Terbayar'
+            case 'in_progress': return 'Dikerjakan'
+            case 'awaiting_settlement': return 'Menunggu Pelunasan'
+            case 'settled': return 'Lunas'
+            default: return status
+        }
+    }
+
     // Open approve confirmation modal
     const openApproveModal = (order) => {
         setOrderToAction(order)
@@ -159,6 +181,55 @@ function AdminOrdersPage() {
         } finally {
             setActionLoading(null)
         }
+    }
+
+    const handleUpdateServiceProgress = async (e) => {
+        e.preventDefault()
+        const note = e.target.note?.value || ''
+        setActionLoading(selectedOrder.id)
+        try {
+            await ordersApi.updateServiceProgress(selectedOrder.id, {
+                status: 'in_progress',
+                notes: note
+            })
+            toast.success('Pekerjaan jasa telah dimulai dan notifikasi terkirim')
+            refetch?.()
+            setSelectedOrder(prev => ({...prev, serviceStatus: 'in_progress', serviceNotes: prev.serviceNotes ? prev.serviceNotes + '\n' + note : note}))
+        } catch (error) {
+            toast.error('Gagal update progress jasa: ' + (error.message || 'Unknown error'))
+        } finally {
+            setActionLoading(null)
+        }
+    }
+
+    const handleRequestSettlement = async () => {
+         setActionLoading(selectedOrder.id)
+         try {
+             await ordersApi.updateServiceProgress(selectedOrder.id, {
+                 status: 'awaiting_settlement'
+             })
+             toast.success('Permintaan pelunasan telah dikirim ke WA Customer')
+             refetch?.()
+             setSelectedOrder(prev => ({...prev, serviceStatus: 'awaiting_settlement'}))
+         } catch(error) {
+             toast.error('Gagal mengirim tagihan: ' + (error.message || 'Unknown error'))
+         } finally {
+            setActionLoading(null)
+         }
+    }
+
+    const handleConfirmSettlement = async () => {
+         setActionLoading(selectedOrder.id)
+         try {
+             await ordersApi.confirmSettlement(selectedOrder.id)
+             toast.success('Pelunasan manual berhasil dikonfirmasi')
+             refetch?.()
+             setSelectedOrder(prev => ({...prev, serviceStatus: 'settled'}))
+         } catch(error) {
+             toast.error('Gagal konfirmasi pelunasan: ' + (error.message || 'Unknown error'))
+         } finally {
+            setActionLoading(null)
+         }
     }
 
     const openDetail = (order) => {
@@ -328,6 +399,11 @@ function AdminOrdersPage() {
                                                 {order.hasDigitalItems && (
                                                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" title="Produk Digital">
                                                         Digital
+                                                    </span>
+                                                )}
+                                                {order.hasServiceItems && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" title="Produk Jasa">
+                                                        Jasa
                                                     </span>
                                                 )}
                                             </div>
@@ -577,6 +653,83 @@ function AdminOrdersPage() {
                                         <Icon name="send" size={18} />
                                         {actionLoading === selectedOrder.id ? 'Mengirim...' : 'Kirim Link/File'}
                                     </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Service Action */}
+                        {selectedOrder.hasServiceItems && (
+                            <div className="border-t dark:border-slate-700 pt-4 space-y-3">
+                                <h4 className="font-semibold text-slate-900 dark:text-white mb-2">🛠️ Pengerjaan Jasa</h4>
+                                
+                                <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-100 dark:border-purple-800">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div>
+                                            <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Status Pekerjaan:</span>
+                                            <div className="mt-1">
+                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getServiceStatusColor(selectedOrder.serviceStatus)}`}>
+                                                    {getServiceStatusLabel(selectedOrder.serviceStatus)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Progress History */}
+                                    {selectedOrder.serviceNotes && (
+                                        <div className="mb-4">
+                                            <span className="text-xs text-slate-500 font-medium block mb-1">Catatan Progress:</span>
+                                            <div className="text-sm text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-700 whitespace-pre-wrap">
+                                                {selectedOrder.serviceNotes}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Actions based on status */}
+                                    {selectedOrder.serviceStatus === 'dp_paid' && (
+                                        <form onSubmit={handleUpdateServiceProgress} className="space-y-3 mt-4 border-t border-purple-200 dark:border-purple-800 pt-3">
+                                            <textarea 
+                                                name="note" 
+                                                placeholder="Catatan pengerjaan (akan dikirim via WA ke customer)..." 
+                                                className="w-full px-3 py-2 text-sm rounded border border-purple-200 dark:border-purple-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                                rows={2}
+                                                required
+                                            ></textarea>
+                                            <button
+                                                type="submit"
+                                                disabled={actionLoading === selectedOrder.id}
+                                                className="w-full py-2 bg-purple-600 text-white rounded font-medium text-sm hover:bg-purple-700 transition-colors disabled:opacity-50"
+                                            >
+                                                {actionLoading === selectedOrder.id ? 'Memproses...' : 'Mulai Kerjakan & Kabari Customer'}
+                                            </button>
+                                        </form>
+                                    )}
+
+                                    {selectedOrder.serviceStatus === 'in_progress' && (
+                                        <div className="mt-4 border-t border-purple-200 dark:border-purple-800 pt-3 text-center">
+                                            <p className="text-xs text-purple-700 dark:text-purple-300 mb-2">Pastikan pekerjaan sudah selesai sebelum menagih sisa pembayaran.</p>
+                                            <button
+                                                onClick={handleRequestSettlement}
+                                                disabled={actionLoading === selectedOrder.id}
+                                                className="w-full py-2 bg-orange-500 text-white rounded font-medium text-sm hover:bg-orange-600 transition-colors disabled:opacity-50"
+                                            >
+                                                {actionLoading === selectedOrder.id ? 'Memproses...' : 'Minta Pelunasan via WhatsApp'}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {selectedOrder.serviceStatus === 'awaiting_settlement' && (
+                                        <div className="mt-4 border-t border-purple-200 dark:border-purple-800 pt-3 text-center">
+                                            <p className="text-xs text-purple-700 dark:text-purple-300 mb-2">Konfirmasi jika customer sudah melunasi tagihan secara manual/transfer langsung.</p>
+                                            <button
+                                                onClick={handleConfirmSettlement}
+                                                disabled={actionLoading === selectedOrder.id}
+                                                className="w-full py-2 bg-green-600 text-white rounded font-medium text-sm hover:bg-green-700 transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
+                                            >
+                                                <Icon name="check_circle" size={16} /> 
+                                                {actionLoading === selectedOrder.id ? 'Memproses...' : 'Konfirmasi Lunas (Manual)'}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

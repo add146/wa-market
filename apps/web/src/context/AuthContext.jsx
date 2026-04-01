@@ -3,9 +3,10 @@ import { authApi } from '../api/client'
 
 const AuthContext = createContext()
 
-// Role hierarchy: admin > seller > user
+// Role hierarchy: admin > seller > user/customer
 const ROLE_LEVELS = {
     user: 1,
+    customer: 1,   // Treat customer as user level
     seller: 2,
     admin: 3,
 }

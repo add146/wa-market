@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import AdminHeader from '../components/organisms/AdminHeader'
 import { Icon, Modal } from '../components/atoms'
 import { useProducts, useCategories } from '../hooks'
@@ -37,13 +38,22 @@ function AdminProductsPage() {
         weight: '500',
         categoryId: '',
         productType: 'regular',
+        digitalType: 'link',
         preorderDays: '0',
         digitalContent: '',
+        ebookFileKey: '',
+        dpType: 'percentage',
+        dpValue: '',
+        serviceDuration: '',
+        serviceDescription: '',
+        requiresShipping: true,
         images: ['', '', ''],
         variants: []
     })
     const [imageFiles, setImageFiles] = useState([null, null, null])
+    const [ebookFile, setEbookFile] = useState(null)
     const [imagePreviews, setImagePreviews] = useState(['', '', ''])
+    const navigate = useNavigate()
     const [isUploading, setIsUploading] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
 
@@ -70,12 +80,16 @@ function AdminProductsPage() {
             weight: '500',
             categoryId: '',
             productType: 'regular',
+            digitalType: 'link',
             preorderDays: '0',
             digitalContent: '',
+            ebookFileKey: '',
+            requiresShipping: true,
             images: ['', '', ''],
             variants: []
         })
         setImageFiles([null, null, null])
+        setEbookFile(null)
         setImagePreviews(['', '', ''])
         setShowModal(true)
     }
@@ -119,8 +133,15 @@ function AdminProductsPage() {
                 weight: fullProduct.weight?.toString() || '500',
                 categoryId: fullProduct.categoryId || '',
                 productType: fullProduct.productType || 'regular',
+                digitalType: fullProduct.digitalType || 'link',
                 preorderDays: fullProduct.preorderDays?.toString() || '0',
                 digitalContent: fullProduct.digitalContent || '',
+                ebookFileKey: fullProduct.ebookFileKey || '',
+                dpType: fullProduct.dpType || 'percentage',
+                dpValue: fullProduct.dpValue?.toString() || '',
+                serviceDuration: fullProduct.serviceDuration || '',
+                serviceDescription: fullProduct.serviceDescription || '',
+                requiresShipping: fullProduct.productType === 'service' ? (fullProduct.requiresShipping ?? false) : true,
                 images: existingImages,
                 variants: (fullProduct.variants || []).map(v => ({
                     ...v,
@@ -129,6 +150,7 @@ function AdminProductsPage() {
                 }))
             })
             setImageFiles([null, null, null])
+            setEbookFile(null)
             setImagePreviews(existingImages.map(img => {
                 if (!img || img === '') return ''
                 return img.startsWith('/uploads') ? `${API_BASE}${img}` : img
@@ -148,12 +170,20 @@ function AdminProductsPage() {
                 weight: product.weight?.toString() || '500',
                 categoryId: product.categoryId || '',
                 productType: product.productType || 'regular',
+                digitalType: product.digitalType || 'link',
                 preorderDays: product.preorderDays?.toString() || '0',
                 digitalContent: product.digitalContent || '',
+                ebookFileKey: product.ebookFileKey || '',
+                dpType: product.dpType || 'percentage',
+                dpValue: product.dpValue?.toString() || '',
+                serviceDuration: product.serviceDuration || '',
+                serviceDescription: product.serviceDescription || '',
+                requiresShipping: product.productType === 'service' ? (product.requiresShipping ?? false) : true,
                 images: [existingImage, '', ''],
                 variants: []
             })
             setImageFiles([null, null, null])
+            setEbookFile(null)
             setImagePreviews([existingImage.startsWith('/uploads') ? `${API_BASE}${existingImage}` : existingImage, '', ''])
             setShowModal(true)
         }
@@ -192,6 +222,15 @@ function AdminProductsPage() {
             // Filter out empty image URLs
             const finalImages = imageUrls.filter(url => url && url.trim() !== '')
 
+            let finalEbookFileKey = formData.ebookFileKey;
+            
+            if (formData.productType === 'digital' && formData.digitalType === 'ebook' && ebookFile) {
+                setIsUploading(true)
+                const uploadRes = await uploadApi.uploadEbook(ebookFile)
+                finalEbookFileKey = uploadRes.data.key
+                setIsUploading(false)
+            }
+
             const payload = {
                 name: formData.name,
                 description: formData.description,
@@ -202,8 +241,15 @@ function AdminProductsPage() {
                 weight: parseInt(formData.weight) || 500,
                 categoryId: formData.categoryId || null,
                 productType: formData.productType,
+                digitalType: formData.productType === 'digital' ? formData.digitalType : null,
+                dpType: formData.productType === 'service' ? formData.dpType : null,
+                dpValue: formData.productType === 'service' ? parseInt(formData.dpValue) || 0 : null,
+                serviceDuration: formData.productType === 'service' ? formData.serviceDuration : null,
+                serviceDescription: formData.productType === 'service' ? formData.serviceDescription : null,
+                requiresShipping: formData.productType === 'service' ? formData.requiresShipping : true,
                 preorderDays: parseInt(formData.preorderDays) || 0,
                 digitalContent: formData.digitalContent,
+                ebookFileKey: finalEbookFileKey,
                 images: finalImages,
                 variants: formData.variants.map(v => ({
                     type: v.type,
@@ -328,7 +374,7 @@ function AdminProductsPage() {
                                         </span>
                                         <div className="flex flex-col items-end gap-1">
                                             <span className="text-xs text-slate-500">
-                                                Stok: {product.productType === 'digital' ? 'Unlimited' : (product.stock || 0)}
+                                                Stok: {product.productType === 'digital' || product.productType === 'service' ? 'Unlimited' : (product.stock || 0)}
                                             </span>
                                             {product.productType === 'preorder' && (
                                                 <span className="text-[10px] px-2 py-0.5 bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 rounded">
@@ -337,7 +383,12 @@ function AdminProductsPage() {
                                             )}
                                             {product.productType === 'digital' && (
                                                 <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded">
-                                                    Digital
+                                                    {product.digitalType === 'ebook' ? 'E-book' : product.digitalType === 'course' ? 'LMS Course' : 'Digital'}
+                                                </span>
+                                            )}
+                                            {product.productType === 'service' && (
+                                                <span className="text-[10px] px-2 py-0.5 bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 rounded">
+                                                    🛠️ Jasa {product.dpValue ? `(DP ${product.dpType === 'percentage' ? product.dpValue + '%' : 'Rp ' + (product.dpValue).toLocaleString('id-ID')})` : ''}
                                                 </span>
                                             )}
                                         </div>
@@ -349,6 +400,15 @@ function AdminProductsPage() {
                                         >
                                             Edit
                                         </button>
+                                        {product.productType === 'digital' && product.digitalType === 'course' && (
+                                            <button
+                                                onClick={() => navigate(`/admin/lms-studio/${product.id}`)}
+                                                className="flex-1 py-2 px-1 text-sm font-medium text-emerald-600 border border-emerald-500 rounded-lg hover:bg-emerald-50 transition-colors"
+                                                title="Materi Kursus"
+                                            >
+                                                Materi
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => openDeleteModal(product)}
                                             className="px-3 py-2 text-red-500 border border-red-200 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -412,6 +472,7 @@ function AdminProductsPage() {
                                 <option value="regular">Fisik (Reguler)</option>
                                 <option value="preorder">Pre-Order (PO)</option>
                                 <option value="digital">Digital (Tanpa Kurir)</option>
+                                <option value="service">Jasa / Service (DP Bertahap)</option>
                             </select>
                         </div>
                     </div>
@@ -433,7 +494,113 @@ function AdminProductsPage() {
                         </div>
                     )}
 
+                    {formData.productType === 'service' && (
+                        <div className="space-y-4 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-xl">
+                            <h4 className="font-semibold text-purple-800 dark:text-purple-300 flex items-center gap-2">
+                                <Icon name="construction" size={20} /> Konfigurasi Jasa & DP
+                            </h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                        Tipe DP *
+                                    </label>
+                                    <div className="flex items-center gap-4 mt-2">
+                                        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+                                            <input type="radio" name="dpType" value="percentage" checked={formData.dpType === 'percentage'} onChange={() => setFormData({ ...formData, dpType: 'percentage' })} className="text-purple-600 focus:ring-purple-500" />
+                                            Persentase (%)
+                                        </label>
+                                        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+                                            <input type="radio" name="dpType" value="fixed" checked={formData.dpType === 'fixed'} onChange={() => setFormData({ ...formData, dpType: 'fixed' })} className="text-purple-600 focus:ring-purple-500" />
+                                            Nominal Rupiah
+                                        </label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                        Nilai DP *
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={formData.dpValue}
+                                        onChange={(e) => setFormData({ ...formData, dpValue: e.target.value })}
+                                        placeholder={formData.dpType === 'percentage' ? "Contoh: 50" : "Contoh: 500000"}
+                                        required={formData.productType === 'service'}
+                                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        {formData.dpType === 'percentage' 
+                                            ? `Customer akan ditagih DP sebesar ${formData.dpValue || 0}% dari harga produk.` 
+                                            : `Customer akan ditagih DP sebesar Rp ${Number(formData.dpValue || 0).toLocaleString('id-ID')}.`}
+                                    </p>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                    Estimasi Waktu Pengerjaan
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.serviceDuration}
+                                    onChange={(e) => setFormData({ ...formData, serviceDuration: e.target.value })}
+                                    placeholder='Contoh: "7-14 hari kerja" atau "3 Hari"'
+                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                    Scope of Work / Deskripsi Jasa
+                                </label>
+                                <textarea
+                                    value={formData.serviceDescription}
+                                    onChange={(e) => setFormData({ ...formData, serviceDescription: e.target.value })}
+                                    rows={3}
+                                    placeholder="Jelaskan detail layanan yang didapatkan customer."
+                                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                    Pengiriman Fisik & Ongkir
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer mt-2 w-fit">
+                                    <div className="relative">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only"
+                                            checked={formData.requiresShipping}
+                                            onChange={(e) => setFormData({ ...formData, requiresShipping: e.target.checked })}
+                                        />
+                                        <div className={`block w-10 h-6 rounded-full transition-colors ${formData.requiresShipping ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-600'}`}></div>
+                                        <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${formData.requiresShipping ? 'transform translate-x-4' : ''}`}></div>
+                                    </div>
+                                    <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                                        {formData.requiresShipping ? 'Aktif (Customer bayar ongkir)' : 'Nonaktif (Tanpa pengiriman)'}
+                                    </span>
+                                </label>
+                                <p className="text-xs text-slate-500 mt-1">Aktifkan jika jasa ini memerlukan pengiriman fisik (produk atau dokumen) ke/dari lokasi pelanggan.</p>
+                            </div>
+                        </div>
+                    )}
+
                     {formData.productType === 'digital' && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Tipe Digital *
+                            </label>
+                            <select
+                                value={formData.digitalType}
+                                onChange={(e) => setFormData({ ...formData, digitalType: e.target.value })}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                            >
+                                <option value="link">Link Akses / Berkas Eksternal</option>
+                                <option value="ebook">E-book (Internal PDF Reader)</option>
+                                <option value="course">LMS E-Course (Internal Video)</option>
+                            </select>
+                        </div>
+                    )}
+
+                    {formData.productType === 'digital' && formData.digitalType === 'link' && (
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                                 Konten Digital (Link/Instruksi) *
@@ -444,9 +611,54 @@ function AdminProductsPage() {
                                 onChange={(e) => setFormData({ ...formData, digitalContent: e.target.value })}
                                 rows={2}
                                 placeholder="Link Google Drive, Kode Lisensi, dll..."
-                                required={formData.productType === 'digital'}
+                                required={formData.digitalType === 'link'}
                                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
                             />
+                        </div>
+                    )}
+
+                    {formData.productType === 'digital' && formData.digitalType === 'ebook' && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Berkas E-book (PDF / EPUB) *
+                            </label>
+                            <p className="text-xs text-slate-500 mb-2">User akan membaca langsung di dalam website. EPUB mendukung fitur perbesar font yang lebih baik.</p>
+                            {formData.ebookFileKey && (
+                                <p className="text-sm text-green-600 mb-2 border border-green-200 bg-green-50 p-2 rounded flex items-center gap-2">
+                                    <Icon name="check_circle" size={16} /> Berkas sudah tersedia di sistem. Upload baru untuk menimpa.
+                                </p>
+                            )}
+                            <input
+                                type="file"
+                                accept="application/pdf,application/epub+zip,.epub"
+                                onChange={(e) => setEbookFile(e.target.files[0])}
+                                required={!formData.ebookFileKey && formData.digitalType === 'ebook'}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                            />
+                        </div>
+                    )}
+
+                    {formData.productType === 'digital' && formData.digitalType === 'course' && (
+                        <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 p-3 rounded-lg border border-blue-200 dark:border-blue-800 text-sm">
+                            <h4 className="font-semibold flex items-center gap-2 mb-2"><Icon name="info" size={16}/> Informasi Kursus</h4>
+                            {editingProduct ? (
+                                <div className="flex items-center justify-between gap-3">
+                                    <span>Kelola materi kursus (Bab &amp; Video) melalui LMS Studio.</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowModal(false)
+                                            navigate(`/admin/lms-studio/${editingProduct.id}`)
+                                        }}
+                                        className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
+                                    >
+                                        <Icon name="play_lesson" size={14} />
+                                        Buka Materi
+                                    </button>
+                                </div>
+                            ) : (
+                                <span>Setelah produk kursus berhasil disimpan, klik tombol <strong>"Materi"</strong> di daftar produk untuk mengelola materi (Bab dan Video).</span>
+                            )}
                         </div>
                     )}
 
@@ -465,13 +677,13 @@ function AdminProductsPage() {
                     <div className="grid grid-cols-3 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Harga Jual *
+                                Harga Jual (Kosongkan bila gratis)
                             </label>
                             <input
                                 type="number"
                                 value={formData.price}
                                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                                required
+                                placeholder="0"
                                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
                             />
                         </div>
@@ -501,7 +713,7 @@ function AdminProductsPage() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        {formData.productType !== 'digital' && (
+                        {formData.productType !== 'digital' && formData.productType !== 'service' && (
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                                     Stok
@@ -514,7 +726,7 @@ function AdminProductsPage() {
                                 />
                             </div>
                         )}
-                        {formData.productType !== 'digital' && (
+                        {formData.productType !== 'digital' && formData.productType !== 'service' && (
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                                     Berat (gram)

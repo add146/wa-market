@@ -1,9 +1,10 @@
 import { Hono } from 'hono';
 import { getDb } from '../db';
 import { orders, payments, storeSettings } from '../db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { createXenditInvoice, verifyXenditWebhook } from '../lib/xendit';
 import { createMidtransTransaction, verifyMidtransSignature } from '../lib/midtrans';
+import { grantDigitalAccess } from '../lib/digital_access';
 import type { Env } from '../index';
 
 type Variables = { store: any; user: any };
@@ -18,7 +19,7 @@ router.post('/create', async (c) => {
     try {
         const db = getDb(c.env);
         const store = c.get('store');
-        const { orderId, provider } = await c.req.json();
+        const { orderId, provider, paymentType = 'full' } = await c.req.json();
 
         if (!orderId || !provider) {
             return c.json({ error: 'orderId and provider are required' }, 400);
@@ -42,6 +43,10 @@ router.post('/create', async (c) => {
         // Determine base URL for redirects
         const origin = c.req.header('origin') || c.req.header('referer')?.replace(/\/[^/]*$/, '') || '';
 
+        let amountToPay = order.total;
+        if (paymentType === 'dp') amountToPay = order.dpAmount || 0;
+        if (paymentType === 'settlement') amountToPay = order.settlementAmount || 0;
+
         let paymentUrl = '';
         let externalId = '';
 
@@ -50,9 +55,9 @@ router.post('/create', async (c) => {
             if (!secretKey) return c.json({ error: 'Xendit API key not configured' }, 400);
 
             const result = await createXenditInvoice(secretKey, {
-                externalId: `${store.slug}-${order.orderNumber}`,
-                amount: order.total,
-                description: `Pesanan ${order.orderNumber} di ${storeName}`,
+                externalId: `${store.slug}-${order.orderNumber}-${paymentType}`,
+                amount: amountToPay,
+                description: `Pesanan ${order.orderNumber} ${paymentType === 'dp' ? '(DP)' : paymentType === 'settlement' ? '(Pelunasan)' : ''} di ${storeName}`,
                 successRedirectUrl: `${origin}/payment-status/${order.id}`,
                 failureRedirectUrl: `${origin}/payment-status/${order.id}`,
             });
@@ -68,8 +73,8 @@ router.post('/create', async (c) => {
             if (!serverKey) return c.json({ error: 'Midtrans Server Key not configured' }, 400);
 
             const result = await createMidtransTransaction(serverKey, {
-                orderId: `${store.slug}-${order.orderNumber}`,
-                grossAmount: order.total,
+                orderId: `${store.slug}-${order.orderNumber}-${paymentType}`,
+                grossAmount: amountToPay,
                 customerFirstName: order.recipientName,
                 customerPhone: order.recipientPhone,
                 callbacks: {
@@ -91,7 +96,7 @@ router.post('/create', async (c) => {
             provider,
             externalId,
             paymentUrl,
-            amount: order.total,
+            amount: amountToPay,
             status: 'pending',
         }).returning();
 
@@ -156,10 +161,32 @@ router.post('/webhook/xendit', async (c) => {
 
         // Update order
         if (newStatus === 'paid') {
-            await db.update(orders).set({
-                paymentStatus: 'paid',
-                status: 'processing',
-            }).where(eq(orders.id, payment.orderId));
+            const [orderObj] = await db.select().from(orders).where(eq(orders.id, payment.orderId));
+            if (orderObj) {
+                if (orderObj.hasServiceItems) {
+                    if (payment.amount === orderObj.dpAmount) {
+                        await db.update(orders).set({
+                            serviceStatus: 'dp_paid',
+                            dpPaidAt: new Date() as any,
+                            paymentStatus: 'dp_paid',
+                        }).where(eq(orders.id, payment.orderId));
+                    } else if (payment.amount === orderObj.settlementAmount) {
+                        await db.update(orders).set({
+                            serviceStatus: 'settled',
+                            settlementPaidAt: new Date() as any,
+                            paymentStatus: 'paid',
+                            status: 'completed'
+                        }).where(eq(orders.id, payment.orderId));
+                        if (orderObj.userId) await grantDigitalAccess(db, store.id, orderObj.id, orderObj.userId);
+                    }
+                } else {
+                    await db.update(orders).set({
+                        paymentStatus: 'paid',
+                        status: 'processing',
+                    }).where(eq(orders.id, payment.orderId));
+                    if (orderObj.userId) await grantDigitalAccess(db, store.id, orderObj.id, orderObj.userId);
+                }
+            }
         } else if (newStatus === 'expired') {
             await db.update(orders).set({
                 paymentStatus: 'expired',
@@ -225,10 +252,32 @@ router.post('/webhook/midtrans', async (c) => {
         }).where(eq(payments.id, payment.id));
 
         if (newStatus === 'paid') {
-            await db.update(orders).set({
-                paymentStatus: 'paid',
-                status: 'processing',
-            }).where(eq(orders.id, payment.orderId));
+            const [orderObj] = await db.select().from(orders).where(eq(orders.id, payment.orderId));
+            if (orderObj) {
+                if (orderObj.hasServiceItems) {
+                    if (payment.amount === orderObj.dpAmount) {
+                        await db.update(orders).set({
+                            serviceStatus: 'dp_paid',
+                            dpPaidAt: new Date() as any,
+                            paymentStatus: 'dp_paid',
+                        }).where(eq(orders.id, payment.orderId));
+                    } else if (payment.amount === orderObj.settlementAmount) {
+                        await db.update(orders).set({
+                            serviceStatus: 'settled',
+                            settlementPaidAt: new Date() as any,
+                            paymentStatus: 'paid',
+                            status: 'completed'
+                        }).where(eq(orders.id, payment.orderId));
+                        if (orderObj.userId) await grantDigitalAccess(db, store.id, orderObj.id, orderObj.userId);
+                    }
+                } else {
+                    await db.update(orders).set({
+                        paymentStatus: 'paid',
+                        status: 'processing',
+                    }).where(eq(orders.id, payment.orderId));
+                    if (orderObj.userId) await grantDigitalAccess(db, store.id, orderObj.id, orderObj.userId);
+                }
+            }
         } else if (newStatus === 'expired') {
             await db.update(orders).set({
                 paymentStatus: 'expired',
@@ -257,9 +306,9 @@ router.get('/status/:orderId', async (c) => {
         );
         if (!order) return c.json({ error: 'Order not found' }, 404);
 
-        const [payment] = await db.select().from(payments).where(
-            and(eq(payments.orderId, orderId), eq(payments.storeId, store.id))
-        );
+        const [payment] = await db.select().from(payments)
+            .where(and(eq(payments.orderId, orderId), eq(payments.storeId, store.id)))
+            .orderBy(desc(payments.createdAt));
 
         return c.json({
             orderNumber: order.orderNumber,
@@ -267,6 +316,10 @@ router.get('/status/:orderId', async (c) => {
             paymentMethod: order.paymentMethod,
             paymentStatus: order.paymentStatus,
             orderStatus: order.status,
+            hasServiceItems: order.hasServiceItems,
+            serviceStatus: order.serviceStatus,
+            dpAmount: order.dpAmount,
+            settlementAmount: order.settlementAmount,
             payment: payment ? {
                 provider: payment.provider,
                 status: payment.status,

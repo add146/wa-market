@@ -38,6 +38,10 @@ router.get('/', async (c) => {
             conditions.push(like(products.name, `%${search}%`));
         }
 
+        const [{ totalCount }] = await db.select({ totalCount: count() })
+            .from(products)
+            .where(and(...conditions));
+
         const result = await db.select({
             id: products.id,
             name: products.name,
@@ -53,8 +57,15 @@ router.get('/', async (c) => {
             stock: products.stock,
             weight: products.weight,
             productType: products.productType,
+            digitalType: products.digitalType,
+            ebookFileKey: products.ebookFileKey,
             preorderDays: products.preorderDays,
             digitalContent: products.digitalContent,
+            dpType: products.dpType,
+            dpValue: products.dpValue,
+            serviceDuration: products.serviceDuration,
+            serviceDescription: products.serviceDescription,
+            requiresShipping: products.requiresShipping,
             isActive: products.isActive,
             createdAt: products.createdAt,
         }).from(products)
@@ -68,7 +79,7 @@ router.get('/', async (c) => {
             pagination: {
                 limit: Number(limit),
                 offset: Number(offset),
-                total: result.length, // not exact total, but fine for now
+                total: totalCount,
             }
         });
     } catch (e) {
@@ -159,6 +170,7 @@ router.post('/', authMiddleware, adminMiddleware, async (c) => {
             slug,
             image,
             isActive: productData.isActive !== false ? 1 : 0,
+            requiresShipping: productData.requiresShipping !== false ? 1 : 0,
         }).returning();
 
         if (variantsData?.length > 0) {
@@ -207,6 +219,9 @@ router.put('/:id', authMiddleware, adminMiddleware, async (c) => {
         }
         if (typeof productData.isActive === 'boolean') {
             updateData.isActive = productData.isActive ? 1 : 0;
+        }
+        if (typeof productData.requiresShipping === 'boolean') {
+            updateData.requiresShipping = productData.requiresShipping ? 1 : 0;
         }
 
         const [updated] = await db.update(products).set(updateData).where(

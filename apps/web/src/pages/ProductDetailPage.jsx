@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { ProductDetailLayout } from '../components/templates'
 import { Breadcrumb, PriceDisplay, ProductRating } from '../components/molecules'
@@ -12,7 +12,9 @@ import {
 import { useProduct, useShippingOptions, useSetting } from '../hooks'
 import { useCart, useAuth, useWishlist } from '../context'
 import LoadingState from '../components/atoms/LoadingState'
+import { Icon } from '../components/atoms'
 import { useNavigate } from 'react-router-dom'
+import { ebooksApi, coursesApi } from '../api/client'
 
 const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : ''
 
@@ -42,6 +44,35 @@ function ProductDetailPage() {
     const [selectedColor, setSelectedColor] = useState('')
     const [selectedSize, setSelectedSize] = useState('')
     const [quantity, setQuantity] = useState(1)
+
+    // Digital Access State
+    const [hasDigitalAccess, setHasDigitalAccess] = useState(false)
+    const [isCheckingAccess, setIsCheckingAccess] = useState(false)
+
+    // Check digital access
+    useEffect(() => {
+        if (isAuthenticated && product && product.productType === 'digital') {
+            const checkAccess = async () => {
+                setIsCheckingAccess(true)
+                try {
+                    let hasAccess = false
+                    if (product.digitalType === 'ebook') {
+                        const res = await ebooksApi.checkAccess(product.id)
+                        hasAccess = res.data?.hasAccess || false
+                    } else if (product.digitalType === 'course') {
+                        const res = await coursesApi.checkAccess(product.id)
+                        hasAccess = res.data?.hasAccess || false
+                    }
+                    setHasDigitalAccess(hasAccess)
+                } catch (error) {
+                    console.error('Check access error:', error)
+                } finally {
+                    setIsCheckingAccess(false)
+                }
+            }
+            checkAccess()
+        }
+    }, [isAuthenticated, product])
 
     // Show loading state
     if (isLoading) {
@@ -208,9 +239,16 @@ function ProductDetailPage() {
                         )}
 
                         {product.productType === 'digital' && (
-                            <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg text-sm font-medium border border-blue-200 dark:border-blue-800/30">
+                            <div className="mt-3 flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg text-sm font-medium border border-blue-200 dark:border-blue-800/30 w-full sm:w-auto">
                                 <span>📧</span>
                                 <span>Produk Digital — Bebas ongkir, dikirim via WhatsApp/Email setelah dikonfirmasi.</span>
+                            </div>
+                        )}
+
+                        {product.productType === 'service' && (
+                            <div className="mt-3 flex items-center flex-wrap gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded-xl text-sm font-medium border border-purple-200 dark:border-purple-800/30 w-full">
+                                <span>🛠️</span>
+                                <span>Layanan Jasa — Pembayaran bertahap (DP dan Pelunasan). Estimasi Pengerjaan: {product.serviceDuration || '-'} hari.{product.requiresShipping ? <span className="font-bold flex items-center gap-1 mt-1 text-xs"><Icon name="local_shipping" size={14} /> Memerlukan Pengiriman Fisik</span> : ''}</span>
                             </div>
                         )}
                     </div>
@@ -221,6 +259,31 @@ function ProductDetailPage() {
                         discountedPrice={adjustedPrice}
                         discountPercent={product.discount}
                     />
+                    
+                    {product.productType === 'service' && product.dpValue > 0 && (
+                        <div className="mb-6 mt-4 p-4 bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-200 dark:border-purple-800/50 flex flex-col gap-2">
+                            <span className="text-xs font-bold text-purple-800 dark:text-purple-300 tracking-wider">SKEMA PEMBAYARAN JASA</span>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-sm text-slate-700 dark:text-slate-300 font-medium flex items-center justify-between">
+                                    <span>Uang Muka (DP):</span>
+                                    <span className="font-bold text-purple-700 dark:text-purple-400">
+                                        {product.dpType === 'percentage' 
+                                            ? `${product.dpValue}% (Rp ${((adjustedPrice * product.dpValue) / 100).toLocaleString('id-ID')})`
+                                            : `Rp ${product.dpValue.toLocaleString('id-ID')}`}
+                                    </span>
+                                </span>
+                                <span className="text-sm text-slate-700 dark:text-slate-300 font-medium flex items-center justify-between">
+                                    <span>Sisa Pelunasan:</span>
+                                    <span className="font-bold text-slate-900 dark:text-white">
+                                        {product.dpType === 'percentage' 
+                                            ? `Rp ${(adjustedPrice - ((adjustedPrice * product.dpValue) / 100)).toLocaleString('id-ID')}`
+                                            : `Rp ${(adjustedPrice - product.dpValue).toLocaleString('id-ID')}`}
+                                    </span>
+                                </span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">Pembayaran DP diperlukan untuk memulai pekerjaan. Pelunasan dibayarkan setelah pekerjaan selesai.</p>
+                        </div>
+                    )}
 
                     {/* Variants - only show if available */}
                     {(productColors.length > 0 || productSizes.length > 0) && (
@@ -236,7 +299,10 @@ function ProductDetailPage() {
 
                     {/* Actions */}
                     <ProductActions
-                        stock={product.productType === 'digital' ? 999999 : product.stock} // Fake infinite stock for UI
+                        product={product}
+                        hasDigitalAccess={hasDigitalAccess}
+                        isCheckingAccess={isCheckingAccess}
+                        stock={(product.productType === 'digital' || product.productType === 'service') ? 999999 : product.stock} // Fake infinite stock for UI
                         quantity={quantity}
                         onQuantityChange={setQuantity}
                         onAddToCart={handleAddToCart}
@@ -252,6 +318,18 @@ function ProductDetailPage() {
                             description={product.description}
                             features={product.features || []}
                         />
+
+                        {product.productType === 'service' && product.serviceDescription && (
+                            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
+                                    <Icon name="assignment" className="text-purple-500" />
+                                    Scope of Work (Cakupan Layanan)
+                                </h3>
+                                <div className="prose prose-sm dark:prose-invert max-w-none text-slate-600 dark:text-slate-400 whitespace-pre-wrap">
+                                    {product.serviceDescription}
+                                </div>
+                            </div>
+                        )}
 
                         {shippingInfoOptions.length > 0 && (
                             <ShippingInfo options={shippingInfoOptions} />

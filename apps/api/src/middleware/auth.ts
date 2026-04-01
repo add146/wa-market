@@ -20,9 +20,13 @@ export const deleteSession = async (db: any, sessionId: string) => {
 
 export const authMiddleware = async (c: Context, next: Next) => {
     const authHeader = c.req.header('Authorization');
-    const token = authHeader?.startsWith('Bearer ') 
+    let token = authHeader?.startsWith('Bearer ') 
         ? authHeader.substring(7) 
         : getCookie(c, 'session');
+
+    if (!token && c.req.query('token')) {
+        token = c.req.query('token');
+    }
 
     if (!token) {
         return c.json({ error: 'Unauthorized - No token provided' }, 401);
@@ -82,9 +86,13 @@ export const superadminMiddleware = async (c: Context, next: Next) => {
 
 export const optionalAuthMiddleware = async (c: Context, next: Next) => {
     const authHeader = c.req.header('Authorization');
-    const token = authHeader?.startsWith('Bearer ') 
+    let token = authHeader?.startsWith('Bearer ') 
         ? authHeader.substring(7) 
         : getCookie(c, 'session');
+
+    if (!token && c.req.query('token')) {
+        token = c.req.query('token');
+    }
 
     if (token) {
         const db = getDb(c.env as any);

@@ -195,6 +195,7 @@ export const orders = pgTable('orders', {
     shippingOptionId: uuid('shipping_option_id').references(() => shippingOptions.id),
     courierName: varchar('courier_name', { length: 50 }).notNull(),
     shippingCost: integer('shipping_cost').notNull(),
+    shippingDiscount: integer('shipping_discount').default(0),
 
     // Pricing
     subtotal: integer('subtotal').notNull(),

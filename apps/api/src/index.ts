@@ -19,6 +19,8 @@ import wishlistsRouter from './routes/wishlists';
 import shippingRouter from './routes/shipping';
 import shippingOptionsRouter from './routes/shipping-options';
 import customersRouter from './routes/customers';
+import ebooksRouter from './routes/ebooks';
+import coursesRouter from './routes/courses';
 
 export type Env = {
   DB: D1Database;
@@ -67,6 +69,8 @@ app.route('/api/s/:slug/wishlists', wishlistsRouter);
 app.route('/api/s/:slug/shipping', shippingRouter);
 app.route('/api/s/:slug/shipping-options', shippingOptionsRouter);
 app.route('/api/s/:slug/customers', customersRouter);
+app.route('/api/s/:slug/ebooks', ebooksRouter);
+app.route('/api/s/:slug/courses', coursesRouter);
 
 // Serve R2 files
 app.get('/uploads/:filename', async (c) => {

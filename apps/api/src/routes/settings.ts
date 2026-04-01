@@ -31,7 +31,9 @@ router.get('/', async (c) => {
             // Delivery Schedule
             'delivery_schedule', 'delivery_hours_after_payment',
             // RajaOngkir / Komerce Settings (Public)
-            'rajaongkir_enabled', 'rajaongkir_tier'
+            'rajaongkir_enabled', 'rajaongkir_tier',
+            // Checkout-visible settings
+            'unique_code_enabled', 'payment_gateway_enabled', 'payment_provider'
         ];
         
         const settingsObject: Record<string, string> = {};

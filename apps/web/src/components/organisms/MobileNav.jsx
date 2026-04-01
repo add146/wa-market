@@ -3,8 +3,8 @@ import { Icon } from '../atoms'
 
 const navItems = [
     { to: '/', icon: 'home', label: 'Home' },
-    { to: '/wishlist', icon: 'favorite', label: 'Wishlist' },
-    { to: '/orders', icon: 'receipt_long', label: 'Pesanan' },
+    { to: '/my-library', icon: 'library_books', label: 'Pustaka' },
+    { to: '/my-orders', icon: 'receipt_long', label: 'Pesanan' },
     { to: '/account', icon: 'person', label: 'Akun' },
 ]
 

@@ -1,0 +1,1 @@
+ALTER TABLE `products` ADD `requires_shipping` integer DEFAULT true;

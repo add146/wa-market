@@ -48,11 +48,13 @@ function HeroBanner() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
             {/* Main Banner */}
             <div className="relative col-span-1 h-48 overflow-hidden rounded-xl bg-gray-200 md:col-span-2 md:h-80 group cursor-pointer">
-                <div
-                    className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                    style={{ backgroundImage: `url('${getImageUrl(get('banner1_image'), DEFAULTS.banner1_image)}')` }}
+                <img
+                    src={getImageUrl(get('banner1_image'), DEFAULTS.banner1_image)}
+                    alt={get('banner1_title')}
+                    fetchPriority="high"
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent pointer-events-none" />
                 <div className="absolute bottom-0 left-0 p-6 md:p-10">
                     <Badge variant="sale" className="mb-2">{get('banner1_badge')}</Badge>
                     <h2 className="mb-2 text-2xl font-bold text-white md:text-4xl">
@@ -71,11 +73,14 @@ function HeroBanner() {
             <div className="grid grid-cols-2 gap-3 md:flex md:flex-col md:gap-4 md:h-80">
                 {/* Banner 2 */}
                 <div className="relative h-32 md:h-auto md:flex-1 overflow-hidden rounded-xl bg-primary/10 group cursor-pointer">
-                    <div
-                        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                        style={{ backgroundImage: `url('${getImageUrl(get('banner2_image'), DEFAULTS.banner2_image)}')` }}
+                    <img
+                        src={getImageUrl(get('banner2_image'), DEFAULTS.banner2_image)}
+                        alt={get('banner2_label')}
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
                     <div className="absolute bottom-0 left-0 w-full p-3 md:p-4">
                         <p className="text-xs md:text-sm font-medium text-gray-200">{get('banner2_label')}</p>
                         <p className="text-sm md:text-lg font-bold text-white">{get('banner2_promo')}</p>
@@ -84,11 +89,14 @@ function HeroBanner() {
 
                 {/* Banner 3 */}
                 <div className="relative h-32 md:h-auto md:flex-1 overflow-hidden rounded-xl bg-primary/10 group cursor-pointer">
-                    <div
-                        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                        style={{ backgroundImage: `url('${getImageUrl(get('banner3_image'), DEFAULTS.banner3_image)}')` }}
+                    <img
+                        src={getImageUrl(get('banner3_image'), DEFAULTS.banner3_image)}
+                        alt={get('banner3_label')}
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
                     <div className="absolute bottom-0 left-0 w-full p-3 md:p-4">
                         <p className="text-xs md:text-sm font-medium text-gray-200">{get('banner3_label')}</p>
                         <p className="text-sm md:text-lg font-bold text-white">{get('banner3_promo')}</p>

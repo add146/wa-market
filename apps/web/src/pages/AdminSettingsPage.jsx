@@ -231,42 +231,47 @@ function AdminSettingsPage() {
                                         </p>
                                     </div>
                                 )}
-
-                                {/* Delivery Radius */}
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Radius Pengiriman (km)</label>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Radius Maksimal (km)</label>
                                     <div className="flex items-center gap-3">
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            max="100"
-                                            step="0.5"
-                                            value={settings.store_delivery_radius || ''}
-                                            onChange={(e) => handleChange('store_delivery_radius', e.target.value)}
-                                            placeholder="5"
-                                            className={`${inputClass} max-w-[120px]`}
-                                        />
-                                        <span className="text-sm text-slate-500">km</span>
+                                        <div className="relative flex-1 max-w-[150px]">
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="100"
+                                                step="0.5"
+                                                value={settings.store_delivery_radius || ''}
+                                                onChange={(e) => handleChange('store_delivery_radius', e.target.value)}
+                                                placeholder="5"
+                                                className={`${inputClass} pr-10`}
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">KM</span>
+                                        </div>
                                     </div>
-                                    <p className="text-xs text-slate-400 mt-1">Jangkauan maksimal kurir toko dari posisi GPS toko. Jika kosong, Kurir Toko aktif tanpa batasan.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Biaya Kirim Flat (Rp)</label>
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative flex-1 max-w-[200px]">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">Rp</span>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="500"
+                                                value={settings.store_delivery_cost || ''}
+                                                onChange={(e) => handleChange('store_delivery_cost', e.target.value)}
+                                                placeholder="2000"
+                                                className={`${inputClass} pl-10`}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
 
-                                {/* Delivery Cost */}
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Biaya Kurir Toko (Rp)</label>
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-sm text-slate-500 font-medium">Rp</span>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="500"
-                                            value={settings.store_delivery_cost || ''}
-                                            onChange={(e) => handleChange('store_delivery_cost', e.target.value)}
-                                            placeholder="Misal: 10000"
-                                            className={`${inputClass} max-w-[150px]`}
-                                        />
-                                    </div>
-                                    <p className="text-xs text-slate-400 mt-1">Biaya pengiriman menggunakan kurir toko. Jika dikosongkan atau diset 0, maka biaya kurir Gratis.</p>
+                                {/* Note box like in screenshot */}
+                                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                                    <p className="text-xs text-slate-500 leading-relaxed italic">
+                                        Note: Pelanggan yang beralamat di luar radius tidak bisa memilih kurir toko. Set biaya 0 untuk gratis ongkir kurir toko.
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -275,144 +280,159 @@ function AdminSettingsPage() {
                         <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 p-6">
                             <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                                 <Icon name="schedule" size={20} />
-                                Jadwal Pengiriman Kurir Toko
+                                Jadwal Pengiriman Kurir
                             </h3>
-                            <p className="text-sm text-slate-500 mb-4">
-                                Tentukan hari dan jam pengiriman yang tersedia. Customer akan melihat jadwal ini saat memilih Kurir Toko.
-                            </p>
+                                    <p className="text-sm text-slate-500 mb-4">
+                                        Tentukan hari dan jam pengiriman yang tersedia. Customer akan melihat jadwal ini saat memilih Kurir Toko.
+                                    </p>
 
-                            {/* Hours after payment */}
-                            <div className="mb-5 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                    Estimasi Pengiriman Setelah Pelunasan
-                                </label>
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        max="72"
-                                        step="1"
-                                        value={settings.delivery_hours_after_payment || ''}
-                                        onChange={(e) => handleChange('delivery_hours_after_payment', e.target.value)}
-                                        placeholder="3"
-                                        className={`${inputClass} max-w-[100px]`}
-                                    />
-                                    <span className="text-sm text-slate-500">jam setelah pelunasan</span>
-                                </div>
-                                <p className="text-xs text-slate-400 mt-1">Contoh: isi 3 artinya pesanan dikirim estimasi 3 jam setelah pembayaran lunas. Kosongkan jika tidak ada estimasi.</p>
-                            </div>
-
-                            {/* Day Schedule */}
-                            <div className="space-y-3">
-                                {(() => {
-                                    const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
-                                    const dayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
-
-                                    // Parse schedule from settings
-                                    let schedule = {}
-                                    try {
-                                        schedule = settings.delivery_schedule ? JSON.parse(settings.delivery_schedule) : {}
-                                    } catch { schedule = {} }
-
-                                    const updateSchedule = (newSchedule) => {
-                                        handleChange('delivery_schedule', JSON.stringify(newSchedule))
-                                    }
-
-                                    const toggleDay = (dayKey) => {
-                                        const newSched = { ...schedule }
-                                        if (newSched[dayKey]) {
-                                            delete newSched[dayKey]
-                                        } else {
-                                            newSched[dayKey] = ['09:00']
-                                        }
-                                        updateSchedule(newSched)
-                                    }
-
-                                    const addTimeSlot = (dayKey) => {
-                                        const newSched = { ...schedule }
-                                        const slots = [...(newSched[dayKey] || [])]
-                                        slots.push('12:00')
-                                        newSched[dayKey] = slots
-                                        updateSchedule(newSched)
-                                    }
-
-                                    const removeTimeSlot = (dayKey, idx) => {
-                                        const newSched = { ...schedule }
-                                        const slots = [...(newSched[dayKey] || [])]
-                                        slots.splice(idx, 1)
-                                        if (slots.length === 0) {
-                                            delete newSched[dayKey]
-                                        } else {
-                                            newSched[dayKey] = slots
-                                        }
-                                        updateSchedule(newSched)
-                                    }
-
-                                    const updateTimeSlot = (dayKey, idx, value) => {
-                                        const newSched = { ...schedule }
-                                        const slots = [...(newSched[dayKey] || [])]
-                                        slots[idx] = value
-                                        newSched[dayKey] = slots
-                                        updateSchedule(newSched)
-                                    }
-
-                                    return days.map((dayName, i) => {
-                                        const dayKey = dayKeys[i]
-                                        const isActive = !!schedule[dayKey]
-                                        const slots = schedule[dayKey] || []
-                                        return (
-                                            <div key={dayKey} className={`rounded-xl border transition-all ${isActive ? 'border-primary/30 bg-primary/5 dark:bg-primary/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'} p-4`}>
-                                                <div className="flex items-center justify-between">
-                                                    <label className="flex items-center gap-3 cursor-pointer select-none">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isActive}
-                                                            onChange={() => toggleDay(dayKey)}
-                                                            className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary"
-                                                        />
-                                                        <span className={`font-semibold text-sm ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500'}`}>{dayName}</span>
-                                                    </label>
-                                                    {isActive && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => addTimeSlot(dayKey)}
-                                                            className="text-xs font-medium text-primary hover:text-primary-dark flex items-center gap-1"
-                                                        >
-                                                            <Icon name="add" size={14} /> Tambah Jam
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                {isActive && slots.length > 0 && (
-                                                    <div className="mt-3 flex flex-wrap gap-2">
-                                                        {slots.map((time, idx) => (
-                                                            <div key={idx} className="flex items-center gap-1 bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 px-2 py-1">
-                                                                <input
-                                                                    type="time"
-                                                                    value={time}
-                                                                    onChange={(e) => updateTimeSlot(dayKey, idx, e.target.value)}
-                                                                    className="text-sm bg-transparent text-slate-900 dark:text-white border-none outline-none p-0 w-[80px]"
-                                                                />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => removeTimeSlot(dayKey, idx)}
-                                                                    className="text-red-400 hover:text-red-600 p-0.5"
-                                                                    title="Hapus jam ini"
-                                                                >
-                                                                    <Icon name="close" size={14} />
-                                                                </button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                    {/* Hours after payment */}
+                                    <div className="mb-5 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                            Estimasi Pengiriman Setelah Bayar
+                                        </label>
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative flex-1 max-w-[150px]">
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="72"
+                                                    step="1"
+                                                    value={settings.delivery_hours_after_payment || ''}
+                                                    onChange={(e) => handleChange('delivery_hours_after_payment', e.target.value)}
+                                                    placeholder="3"
+                                                    className={`${inputClass} pr-12`}
+                                                />
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">JAM</span>
                                             </div>
-                                        )
-                                    })
-                                })()}
-                            </div>
-                            <p className="text-xs text-slate-400 mt-3">
-                                💡 Hari yang tidak dicentang artinya tidak ada pengiriman kurir toko di hari tersebut. Jika semua kosong, jadwal tidak ditampilkan ke customer.
-                            </p>
+                                        </div>
+                                        <p className="text-xs text-slate-400 mt-1">Contoh: isi 3 artinya pesanan dikirim estimasi 3 jam setelah pembayaran lunas.</p>
+                                    </div>
+
+                                    {/* Day Schedule */}
+                                    <div className="space-y-3">
+                                        {(() => {
+                                            const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+                                            const dayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+
+                                            // Parse schedule from settings
+                                            let schedule = {}
+                                            try {
+                                                schedule = settings.delivery_schedule ? JSON.parse(settings.delivery_schedule) : {}
+                                            } catch { schedule = {} }
+
+                                            const updateSchedule = (newSchedule) => {
+                                                handleChange('delivery_schedule', JSON.stringify(newSchedule))
+                                            }
+
+                                            const toggleDay = (dayKey) => {
+                                                const newSched = { ...schedule }
+                                                if (newSched[dayKey]) {
+                                                    delete newSched[dayKey]
+                                                } else {
+                                                    newSched[dayKey] = ['09:00']
+                                                }
+                                                updateSchedule(newSched)
+                                            }
+
+                                            const addTimeSlot = (dayKey) => {
+                                                const newSched = { ...schedule }
+                                                const slots = [...(newSched[dayKey] || [])]
+                                                slots.push('12:00')
+                                                newSched[dayKey] = slots
+                                                updateSchedule(newSched)
+                                            }
+
+                                            const removeTimeSlot = (dayKey, idx) => {
+                                                const newSched = { ...schedule }
+                                                const slots = [...(newSched[dayKey] || [])]
+                                                slots.splice(idx, 1)
+                                                if (slots.length === 0) {
+                                                    delete newSched[dayKey]
+                                                } else {
+                                                    newSched[dayKey] = slots
+                                                }
+                                                updateSchedule(newSched)
+                                            }
+
+                                            const updateTimeSlot = (dayKey, idx, value) => {
+                                                const newSched = { ...schedule }
+                                                const slots = [...(newSched[dayKey] || [])]
+                                                slots[idx] = value
+                                                newSched[dayKey] = slots
+                                                updateSchedule(newSched)
+                                            }
+
+                                            return days.map((dayName, i) => {
+                                                const dayKey = dayKeys[i]
+                                                const isActive = !!schedule[dayKey]
+                                                const slots = schedule[dayKey] || []
+                                                return (
+                                                    <div key={dayKey} className={`rounded-xl border transition-all ${isActive ? 'border-primary/30 bg-primary/5 dark:bg-primary/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'} p-4`}>
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isActive ? 'bg-primary/20 text-primary' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
+                                                                    <Icon name={isActive ? "check_circle" : "circle"} size={20} />
+                                                                </div>
+                                                                <span className={`font-semibold text-sm ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500'}`}>{dayName}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                {isActive && (
+                                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary uppercase">{slots.length} Jam Antar</span>
+                                                                )}
+                                                                <label className="relative inline-flex items-center cursor-pointer ml-2">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={isActive}
+                                                                        onChange={() => toggleDay(dayKey)}
+                                                                        className="sr-only peer"
+                                                                    />
+                                                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-primary"></div>
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        {isActive && (
+                                                            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {slots.map((time, idx) => (
+                                                                        <div key={idx} className="flex items-center gap-1 bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 px-2 py-1">
+                                                                            <input
+                                                                                type="time"
+                                                                                value={time}
+                                                                                onChange={(e) => updateTimeSlot(dayKey, idx, e.target.value)}
+                                                                                className="text-sm bg-transparent text-slate-900 dark:text-white border-none outline-none p-0 w-[80px] focus:ring-0"
+                                                                            />
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => removeTimeSlot(dayKey, idx)}
+                                                                                className="text-red-400 hover:text-red-600 p-0.5"
+                                                                                title="Hapus jam ini"
+                                                                            >
+                                                                                <Icon name="cancel" size={16} />
+                                                                            </button>
+                                                                        </div>
+                                                                    ))}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => addTimeSlot(dayKey)}
+                                                                        className="h-[34px] px-3 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-dark transition-colors flex items-center gap-1"
+                                                                    >
+                                                                        <Icon name="add" size={14} /> Tambah Jam
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )
+                                            })
+                                        })()}
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-3 italic">
+                                        💡 Hari yang dinonaktifkan artinya tidak ada jadwal pengiriman kurir.
+                                    </p>
                         </div>
+
 
                         {/* WhatsApp */}
                         <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 p-6">

@@ -78,6 +78,10 @@ function NavActions({ cartCount = 0 }) {
                                     Dashboard
                                 </Link>
                             )}
+                            <Link to="/my-library" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                <Icon name="library_books" size={18} />
+                                Pustaka Saya
+                            </Link>
                             <Link to="/my-orders" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                                 <Icon name="receipt_long" size={18} />
                                 Pesanan Saya

@@ -22,6 +22,7 @@ function CartItemCard({
     const { id, name, variant, price, originalPrice, image, quantity } = item
 
     const formatPrice = (value) => {
+        if (!value || value === 0) return 'Gratis'
         return new Intl.NumberFormat('id-ID', {
             style: 'currency',
             currency: 'IDR',

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { HeroBanner, CategoryChips, ProductGrid, Footer } from '../components/organisms'
 import { useProducts, useCategories } from '../hooks'
 import { useSearch } from '../context'
@@ -8,16 +8,28 @@ import LoadingState from '../components/atoms/LoadingState'
  * HomePage - Main landing page with all sections
  */
 function HomePage() {
-    const { data: productsData, isLoading, isError, error } = useProducts()
-    const { data: categories } = useCategories()
     const { searchQuery } = useSearch()
     const [selectedCategory, setSelectedCategory] = useState(null)
+    const [limit, setLimit] = useState(12)
+
+    // Reset limit when searching or changing category
+    useEffect(() => {
+        setLimit(12)
+    }, [searchQuery, selectedCategory])
+
+    const { data: productsData, isLoading, isError, error, isFetching } = useProducts({
+        limit,
+        search: searchQuery || undefined,
+        category: selectedCategory || undefined
+    })
+    
+    const { data: categories } = useCategories()
 
     const handleCategoryChange = (categoryId) => {
         setSelectedCategory(categoryId === 'all' ? null : categoryId)
     }
 
-    if (isLoading) {
+    if (isLoading && limit === 12) {
         return <LoadingState />
     }
 
@@ -54,20 +66,12 @@ function HomePage() {
         discount: p.discount,
         image: p.image,
         imageAlt: p.imageAlt || p.name,
+        productType: p.productType,
+        preorderDays: p.preorderDays
     })) || []
 
-    // Filter by search query
-    let products = searchQuery
-        ? allProducts.filter(p =>
-            p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            p.category.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-        : allProducts
-
-    // Filter by selected category
-    if (selectedCategory) {
-        products = products.filter(p => p.categoryId === selectedCategory)
-    }
+    const totalAvailable = productsData?.pagination?.total || 0
+    const hasMore = allProducts.length < totalAvailable
 
     return (
         <>
@@ -77,7 +81,29 @@ function HomePage() {
                 selectedCategory={selectedCategory}
                 onCategoryChange={handleCategoryChange}
             />
-            <ProductGrid products={products} />
+            
+            <ProductGrid products={allProducts} />
+
+            {/* Load More Area */}
+            {hasMore ? (
+                <div className="py-8 flex justify-center">
+                    <button
+                        onClick={() => setLimit(prev => prev + 12)}
+                        disabled={isFetching}
+                        className="px-6 py-3 bg-white dark:bg-slate-800 border-2 border-primary/20 text-primary font-semibold rounded-xl hover:bg-primary/5 hover:border-primary transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                        {isFetching && <svg className="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
+                        {isFetching ? 'Memuat...' : 'Tampilkan Lebih Banyak'}
+                    </button>
+                </div>
+            ) : (
+                allProducts.length > 0 && (
+                    <div className="py-8 text-center text-slate-400 text-sm">
+                        Menampilkan semua {allProducts.length} produk
+                    </div>
+                )
+            )}
+
             <Footer />
         </>
     )

@@ -3,6 +3,7 @@
  */
 function ProductPrice({ price, originalPrice, currency = 'Rp' }) {
     const formatPrice = (amount) => {
+        if (!amount || amount === 0) return 'Gratis'
         return `${currency} ${amount.toLocaleString('id-ID')}`
     }
 

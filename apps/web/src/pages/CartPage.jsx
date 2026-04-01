@@ -16,7 +16,10 @@ function CartPage() {
     }
 
     // Format currency
-    const formatPrice = (price) => `Rp ${price.toLocaleString('id-ID')}`
+    const formatPrice = (price) => {
+        if (!price || price === 0) return 'Gratis'
+        return `Rp ${price.toLocaleString('id-ID')}`
+    }
 
     // Get full image URL (handle local uploads)
     const getImageUrl = (image) => {

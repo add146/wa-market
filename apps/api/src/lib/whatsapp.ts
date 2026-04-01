@@ -19,17 +19,18 @@ export function formatOrderMessage(order: Order, items: OrderItem[], storeName?:
 
     const poInfo = (order as any).maxPreorderDays ? `\n⏳ *Pre-Order*: +${(order as any).maxPreorderDays} Hari dari Jadwal Normal` : '';
     const digitalInfo = (order as any).hasDigitalItems ? `\n📧 *Info*: Produk digital akan dikirimkan via WhatsApp terpisah setelah order dibayar/disetujui.` : '';
+    const serviceInfo = (order as any).hasServiceItems ? `\n🛠️ *Info Jasa*: Pembayaran dilakukan bertahap (DP dan Pelunasan setelah selesai).` : '';
 
     let instructions = `
 📝 *Instruksi Pembayaran Manual:*
-Mohon selesaikan pembayaran sesuai *TOTAL BAYAR* ke rekening Admin.
-Setelah transfer, wajib balas pesan ini dengan melampirkan *BUKTI TRANSFER (Foto Nota)* agar pesanan segera diproses.${poInfo}${digitalInfo}`;
+Mohon selesaikan pembayaran sesuai *TOTAL DP / BAYAR* ke rekening Admin.
+Setelah transfer, wajib balas pesan ini dengan melampirkan *BUKTI TRANSFER (Foto Nota)* agar pesanan segera diproses.${poInfo}${digitalInfo}${serviceInfo}`;
 
     if (paymentMethod === 'cod') {
         instructions = `
 📝 *Instruksi Bayar di Tempat (COD):*
 Pesanan Anda akan segera kami proses dan kirimkan menggunakan kurir toko.
-Mohon siapkan uang tunai sesuai *TOTAL BAYAR* saat pesanan tiba di alamat Anda.${poInfo}${digitalInfo}`;
+Mohon siapkan uang tunai sesuai *TOTAL BAYAR* saat pesanan tiba di alamat Anda.${poInfo}${digitalInfo}${serviceInfo}`;
     }
 
     const message = `
@@ -60,9 +61,13 @@ Subtotal: Rp ${order.subtotal.toLocaleString('id-ID')}
 ${order.productDiscount ? `Diskon Produk: -Rp ${order.productDiscount.toLocaleString('id-ID')}` : ''}
 ${order.couponCode ? `Kupon (${order.couponCode}): -Rp ${order.couponDiscount?.toLocaleString('id-ID') || 0}` : ''}
 Ongkir: +Rp ${order.shippingCost.toLocaleString('id-ID')}
+${order.shippingDiscount ? `Potongan Ongkir: -Rp ${order.shippingDiscount.toLocaleString('id-ID')}` : ''}
 ${order.uniqueCode ? `Kode Unik: +Rp ${order.uniqueCode}` : ''}
-━━━━━━━━━━━━━━━━━━━━
-*TOTAL BAYAR: Rp ${order.total.toLocaleString('id-ID')}*
+${(order as any).hasServiceItems ? `━━━━━━━━━━━━━━━━━━━━
+💰 *BIAYA JASA TOTAL: Rp ${order.total.toLocaleString('id-ID')}*
+*DP HARUS DIBAYAR: Rp ${((order as any).dpAmount || 0).toLocaleString('id-ID')}*
+Sisa Pelunasan: Rp ${((order as any).settlementAmount || 0).toLocaleString('id-ID')} (Setelah Selesai)` : `━━━━━━━━━━━━━━━━━━━━
+*TOTAL BAYAR: Rp ${order.total.toLocaleString('id-ID')}*`}
 ━━━━━━━━━━━━━━━━━━━━
 
 📅 Tanggal: ${order.createdAt ? new Date(order.createdAt).toLocaleString('id-ID') : '-'}
@@ -175,6 +180,41 @@ Berikut adalah pengiriman pesanan digital Anda dari ${storeName}:
 ${contentsText}
 
 _Jika file berupa link, mohon segera didownload. Harap simpan dengan baik konten ini karena kami tidak membagikannya ulang._
+`.trim();
+}
+
+export function formatServiceProgressUpdate(order: Order, storeName: string, notes: string): string {
+    return `
+🛠️ *UPDATE PROGRESS PEKERJAAN*
+Dari: ${storeName}
+
+No. Order: *${order.orderNumber}*
+
+Halo ${order.recipientName},
+Berikut adalah update progress pesanan jasa Anda:
+
+${notes}
+
+_Pesan ini dikirim secara otomatis oleh sistem_
+`.trim();
+}
+
+export function formatServiceSettlementRequest(order: Order, storeName: string): string {
+    const settlementAmount = (order as any).settlementAmount || 0;
+    return `
+✅ *PEKERJAAN SELESAI & TAGIHAN PELUNASAN*
+Dari: ${storeName}
+
+No. Order: *${order.orderNumber}*
+
+Halo ${order.recipientName},
+Pekerjaan untuk pesanan jasa Anda telah *SELESAI*.
+
+Mohon segera lakukan pelunasan sebesar:
+*Rp ${settlementAmount.toLocaleString('id-ID')}*
+
+Anda dapat melakukan pembayaran melalui web (jika tersedia), atau dengan transfer manual dan membalas pesan ini disertai bukti transfer.
+Terima kasih! 🙏
 `.trim();
 }
 

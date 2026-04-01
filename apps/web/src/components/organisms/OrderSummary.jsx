@@ -17,6 +17,10 @@ function OrderSummary({
     onCheckout,
     isLoading,
     paymentMethod = 'manual',
+    isService = false,
+    serviceSettlementAmount = null,
+    serviceFullAmount = null,
+    disabled = false,
 }) {
     return (
         <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-border-color dark:border-surface-dark shadow-lg overflow-hidden">
@@ -84,28 +88,43 @@ function OrderSummary({
                     )}
 
                     {/* Unique Code */}
-                    <div className="flex justify-between items-center text-text-main-light/70 dark:text-gray-400">
-                        <span className="flex items-center gap-1">
-                            Kode Unik
-                            <Icon
-                                name="help"
-                                size={14}
-                                className="text-gray-400 cursor-help"
-                            />
-                        </span>
-                        <span className="font-medium text-text-main-light dark:text-white">
-                            {uniqueCode}
-                        </span>
-                    </div>
+                    {(uniqueCode && uniqueCode !== 'Rp 0' && uniqueCode !== 0) ? (
+                        <div className="flex justify-between items-center text-text-main-light/70 dark:text-gray-400">
+                            <span className="flex items-center gap-1">
+                                Kode Unik
+                                <Icon
+                                    name="help"
+                                    size={14}
+                                    className="text-gray-400 cursor-help"
+                                />
+                            </span>
+                            <span className="font-medium text-text-main-light dark:text-white">
+                                {uniqueCode}
+                            </span>
+                        </div>
+                    ) : null}
                 </div>
 
                 {/* Divider */}
                 <div className="my-6 border-t border-dashed border-gray-300 dark:border-gray-700" />
 
+                {isService && (
+                    <div className="mb-4 bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
+                        <div className="flex justify-between items-center text-sm mb-2 text-text-main-light/70 dark:text-gray-400">
+                            <span>Total Harga Jasa:</span>
+                            <span className="font-semibold text-text-main-light dark:text-white">{serviceFullAmount}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm text-text-main-light/70 dark:text-gray-400">
+                            <span>Sisa Pelunasan (Nanti):</span>
+                            <span className="font-semibold text-text-main-light dark:text-white">{serviceSettlementAmount}</span>
+                        </div>
+                    </div>
+                )}
+
                 {/* Total */}
                 <div className="flex justify-between items-end mb-2">
                     <span className="text-lg font-bold text-text-main-light dark:text-white">
-                        TOTAL
+                        {isService ? 'DP' : 'TOTAL'}
                     </span>
                     <span className="text-3xl font-extrabold text-primary">
                         {total}
@@ -136,13 +155,18 @@ function OrderSummary({
                 <Button
                     variant="whatsapp"
                     onClick={onCheckout}
-                    disabled={isLoading}
+                    disabled={isLoading || disabled}
                     className="group w-full text-lg py-4 px-6 rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 flex items-center justify-center gap-3 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                 >
                     {isLoading ? (
                         <>
                             <span className="animate-spin">⏳</span>
                             MEMPROSES...
+                        </>
+                    ) : (total === 'Rp 0' || total === 0) ? (
+                        <>
+                            <Icon name="check_circle" size={24} className="group-hover:animate-pulse" />
+                            SELESAIKAN PESANAN
                         </>
                     ) : (
                         <>

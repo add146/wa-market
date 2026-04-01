@@ -80,10 +80,10 @@ router.post('/register', async (c) => {
         // Create store
         const [newStore] = await db.insert(stores).values({
             name: storeName,
-            slug: slug,
-            ownerPhone: adminPhone,
+            slug: slug as string,
+            ownerPhone: adminPhone as string,
             plan: 'free',
-            isActive: 1
+            isActive: true
         }).returning();
 
         // Check if phone available globally for superadmin? No, just globally inside the same store

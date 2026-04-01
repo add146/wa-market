@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon, Modal } from '../components/atoms'
+import MobileNav from '../components/organisms/MobileNav'
 import { useAuth } from '../context'
 import api from '../api/client'
 import { formatDateTimeWIB } from '../utils/dateWIB'
@@ -47,6 +48,28 @@ function MyOrdersPage() {
             case 'shipped': return 'Dikirim'
             case 'completed': return 'Selesai'
             case 'cancelled': return 'Dibatalkan'
+            default: return status
+        }
+    }
+
+    const getServiceStatusColor = (status) => {
+        switch (status) {
+            case 'waiting_dp': return 'bg-yellow-100 text-yellow-800'
+            case 'dp_paid': return 'bg-blue-100 text-blue-800'
+            case 'in_progress': return 'bg-purple-100 text-purple-800'
+            case 'awaiting_settlement': return 'bg-orange-100 text-orange-800'
+            case 'settled': return 'bg-green-100 text-green-800'
+            default: return 'bg-gray-100 text-gray-800'
+        }
+    }
+
+    const getServiceStatusLabel = (status) => {
+        switch (status) {
+            case 'waiting_dp': return 'Menunggu DP'
+            case 'dp_paid': return 'DP Terbayar'
+            case 'in_progress': return 'Dikerjakan'
+            case 'awaiting_settlement': return 'Menunggu Pelunasan'
+            case 'settled': return 'Lunas'
             default: return status
         }
     }
@@ -103,8 +126,13 @@ function MyOrdersPage() {
                 ) : (
                     <div className="space-y-4">
                         {orders.map(order => (
-                            <div key={order.id} className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 p-4">
-                                <div className="flex items-start justify-between mb-3">
+                            <div key={order.id} className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 p-4 relative">
+                                {order.hasServiceItems && (
+                                    <span className="absolute -top-3 left-4 px-2 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 rounded shadow-sm text-[10px] font-bold">
+                                        🛠️ Jasa
+                                    </span>
+                                )}
+                                <div className="flex items-start justify-between mb-3 mt-1">
                                     <div>
                                         <p className="font-bold text-slate-900 dark:text-white">
                                             #{order.orderNumber || order.id?.slice(0, 8)}
@@ -115,6 +143,15 @@ function MyOrdersPage() {
                                         {getStatusLabel(order.status)}
                                     </span>
                                 </div>
+                                
+                                {order.hasServiceItems && order.serviceStatus && (
+                                    <div className="mb-3 p-2 bg-purple-50 dark:bg-purple-900/10 rounded-lg flex items-center justify-between border border-purple-100 dark:border-purple-800/50">
+                                        <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Status Pekerjaan:</span>
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${getServiceStatusColor(order.serviceStatus)}`}>
+                                            {getServiceStatusLabel(order.serviceStatus)}
+                                        </span>
+                                    </div>
+                                )}
 
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -138,7 +175,7 @@ function MyOrdersPage() {
                 )}
             </main>
 
-            {/* Detail Modal */}
+        {/* Detail Modal */}
             <Modal
                 isOpen={showDetailModal}
                 onClose={() => setShowDetailModal(false)}
@@ -175,7 +212,7 @@ function MyOrdersPage() {
                         </div>
 
                         <div className="border-t pt-4">
-                            <p className="text-slate-500 text-sm mb-1">Kurir</p>
+                            <p className="text-slate-500 text-sm mb-1">Kurir / Metode</p>
                             <p className="font-medium text-slate-900 dark:text-white">{selectedOrder.courierName || '-'}</p>
                             {selectedOrder.shippingType === 'own_courier' && selectedOrder.deliverySlot && (
                                 <p className="text-sm mt-1">
@@ -184,6 +221,40 @@ function MyOrdersPage() {
                                 </p>
                             )}
                         </div>
+
+                        {selectedOrder.hasServiceItems && (
+                            <div className="border-t pt-4">
+                                <p className="text-slate-500 text-sm mb-2 font-bold flex items-center gap-1">
+                                    <Icon name="construction" size={16} /> Progress Jasa
+                                </p>
+                                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-100 dark:border-purple-800/50">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-sm text-purple-700 dark:text-purple-300">Status:</span>
+                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${getServiceStatusColor(selectedOrder.serviceStatus)}`}>
+                                            {getServiceStatusLabel(selectedOrder.serviceStatus)}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center mb-2 text-sm">
+                                        <span className="text-slate-500">DP Dibayar:</span>
+                                        <span className="font-semibold text-slate-800 dark:text-slate-200">Rp {(selectedOrder.dpAmount || 0).toLocaleString('id-ID')}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center mb-3 text-sm border-b border-purple-200 dark:border-purple-700 pb-2">
+                                        <span className="text-slate-500">Tagihan Pelunasan:</span>
+                                        <span className="font-semibold text-orange-600 dark:text-orange-400">Rp {(selectedOrder.settlementAmount || 0).toLocaleString('id-ID')}</span>
+                                    </div>
+                                    {selectedOrder.serviceNotes && (
+                                        <div className="mt-2 text-sm text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 p-2 rounded whitespace-pre-wrap text-xs">
+                                            {selectedOrder.serviceNotes}
+                                        </div>
+                                    )}
+                                    {selectedOrder.serviceStatus === 'awaiting_settlement' && (
+                                        <Link to={`/payment-status/${selectedOrder.id}`} className="mt-3 flex justify-center py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-bold transition-colors">
+                                            Bayar Pelunasan Sekarang
+                                        </Link>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         <div className="border-t pt-4 space-y-2">
                             <div className="flex justify-between text-sm">
@@ -200,10 +271,12 @@ function MyOrdersPage() {
                                     <span>-Rp {selectedOrder.couponDiscount.toLocaleString('id-ID')}</span>
                                 </div>
                             )}
-                            <div className="flex justify-between text-sm">
-                                <span className="text-slate-500">Kode Unik</span>
-                                <span>{selectedOrder.uniqueCode || 0}</span>
-                            </div>
+                            {selectedOrder.uniqueCode > 0 && (
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-slate-500">Kode Unik</span>
+                                    <span>{selectedOrder.uniqueCode}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between font-bold text-lg pt-2 border-t">
                                 <span>Total</span>
                                 <span className="text-primary">Rp {(selectedOrder.total || 0).toLocaleString('id-ID')}</span>
@@ -212,6 +285,8 @@ function MyOrdersPage() {
                     </div>
                 )}
             </Modal>
+
+            <MobileNav />
         </div>
     )
 }

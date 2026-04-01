@@ -68,6 +68,9 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     orders: many(orders),
     courierDeliveries: many(courierDeliveries),
     cartItems: many(cartItems),
+    ebookPurchases: many(ebookPurchases),
+    ebookBookmarks: many(ebookBookmarks),
+    courseEnrollments: many(courseEnrollments),
 }));
 
 // ============================================
@@ -119,9 +122,16 @@ export const products = sqliteTable('products', {
     slug: text('slug').notNull(),
     description: text('description'),
     categoryId: text('category_id').references(() => categories.id),
-    productType: text('product_type').default('regular'), // 'regular' | 'preorder' | 'digital'
+    productType: text('product_type').default('regular'), // 'regular' | 'preorder' | 'digital' | 'service'
+    digitalType: text('digital_type').default('link'), // 'link' | 'ebook' | 'course'
+    ebookFileKey: text('ebook_file_key'),
     preorderDays: integer('preorder_days').default(0),
     digitalContent: text('digital_content'),
+    dpType: text('dp_type'), // 'percentage' | 'fixed'
+    dpValue: integer('dp_value'),
+    serviceDuration: text('service_duration'), // e.g., "7-14 hari kerja"
+    serviceDescription: text('service_description'), // deskripsi/scope of work
+    requiresShipping: integer('requires_shipping', { mode: 'boolean' }).default(true),
     price: integer('price').notNull(),
     costPrice: integer('cost_price').default(0),
     originalPrice: integer('original_price'),
@@ -148,6 +158,10 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     }),
     variants: many(productVariants),
     images: many(productImages),
+    ebookPurchases: many(ebookPurchases),
+    ebookBookmarks: many(ebookBookmarks),
+    courseSections: many(courseSections),
+    courseEnrollments: many(courseEnrollments),
 }));
 
 // ============================================
@@ -241,6 +255,7 @@ export const orders = sqliteTable('orders', {
     shippingOptionId: text('shipping_option_id').references(() => shippingOptions.id),
     courierName: text('courier_name').notNull(),
     shippingCost: integer('shipping_cost').notNull(),
+    shippingDiscount: integer('shipping_discount').default(0),
     subtotal: integer('subtotal').notNull(),
     productDiscount: integer('product_discount').default(0),
     couponCode: text('coupon_code'),
@@ -256,6 +271,13 @@ export const orders = sqliteTable('orders', {
     hasPreorderItems: integer('has_preorder_items', { mode: 'boolean' }).default(false),
     maxPreorderDays: integer('max_preorder_days').default(0),
     digitalDeliveryStatus: text('digital_delivery_status'), // null | 'pending' | 'sent'
+    hasServiceItems: integer('has_service_items', { mode: 'boolean' }).default(false),
+    dpAmount: integer('dp_amount').default(0),
+    dpPaidAt: integer('dp_paid_at', { mode: 'timestamp' }),
+    settlementAmount: integer('settlement_amount').default(0),
+    settlementPaidAt: integer('settlement_paid_at', { mode: 'timestamp' }),
+    serviceStatus: text('service_status'), // null | 'waiting_dp' | 'dp_paid' | 'in_progress' | 'awaiting_settlement' | 'settled'
+    serviceNotes: text('service_notes'),
     createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(now),
     updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(now),
 }, (table) => ({
@@ -276,6 +298,8 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
         fields: [orders.id],
         references: [courierDeliveries.orderId],
     }),
+    ebookPurchases: many(ebookPurchases),
+    courseEnrollments: many(courseEnrollments),
 }));
 
 // ============================================
@@ -431,6 +455,129 @@ export const wishlistsRelations = relations(wishlists, ({ one }) => ({
     }),
 }));
 
+// ============================================
+// EBOOK PURCHASES TABLE
+// ============================================
+export const ebookPurchases = sqliteTable('ebook_purchases', {
+    id: text('id').primaryKey().$defaultFn(generateId),
+    storeId: text('store_id').references(() => stores.id, { onDelete: 'cascade' }).notNull(),
+    userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    productId: text('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
+    orderId: text('order_id').references(() => orders.id, { onDelete: 'cascade' }).notNull(),
+    purchasedAt: integer('purchased_at', { mode: 'timestamp' }).$defaultFn(now),
+    lastReadAt: integer('last_read_at', { mode: 'timestamp' }),
+    lastPage: integer('last_page').default(0),
+    lastCfi: text('last_cfi'),
+    totalPages: integer('total_pages').default(0),
+}, (table) => ({
+    unqUserProduct: unique().on(table.userId, table.productId),
+}));
+
+export const ebookPurchasesRelations = relations(ebookPurchases, ({ one }) => ({
+    store: one(stores, { fields: [ebookPurchases.storeId], references: [stores.id] }),
+    user: one(users, { fields: [ebookPurchases.userId], references: [users.id] }),
+    product: one(products, { fields: [ebookPurchases.productId], references: [products.id] }),
+    order: one(orders, { fields: [ebookPurchases.orderId], references: [orders.id] }),
+}));
+
+// ============================================
+// EBOOK BOOKMARKS TABLE
+// ============================================
+export const ebookBookmarks = sqliteTable('ebook_bookmarks', {
+    id: text('id').primaryKey().$defaultFn(generateId),
+    userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    productId: text('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
+    page: integer('page').notNull(),
+    cfi: text('cfi'),
+    title: text('title').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(now),
+});
+
+export const ebookBookmarksRelations = relations(ebookBookmarks, ({ one }) => ({
+    user: one(users, { fields: [ebookBookmarks.userId], references: [users.id] }),
+    product: one(products, { fields: [ebookBookmarks.productId], references: [products.id] }),
+}));
+
+// ============================================
+// COURSE SECTIONS TABLE
+// ============================================
+export const courseSections = sqliteTable('course_sections', {
+    id: text('id').primaryKey().$defaultFn(generateId),
+    productId: text('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
+    title: text('title').notNull(),
+    sortOrder: integer('sort_order').default(0),
+    isVisible: integer('is_visible', { mode: 'boolean' }).default(true),
+    createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(now),
+});
+
+export const courseSectionsRelations = relations(courseSections, ({ one, many }) => ({
+    product: one(products, { fields: [courseSections.productId], references: [products.id] }),
+    lessons: many(courseLessons),
+}));
+
+// ============================================
+// COURSE LESSONS TABLE
+// ============================================
+export const courseLessons = sqliteTable('course_lessons', {
+    id: text('id').primaryKey().$defaultFn(generateId),
+    sectionId: text('section_id').references(() => courseSections.id, { onDelete: 'cascade' }).notNull(),
+    title: text('title').notNull(),
+    type: text('type').notNull().default('video'),  // 'video' | 'text' | 'audio'
+    videoUrl: text('video_url'),
+    audioUrl: text('audio_url'),
+    content: text('content'),
+    duration: text('duration'),
+    sortOrder: integer('sort_order').default(0),
+    isVisible: integer('is_visible', { mode: 'boolean' }).default(true),
+    isFreePreview: integer('is_free_preview', { mode: 'boolean' }).default(false),
+    createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(now),
+});
+
+export const courseLessonsRelations = relations(courseLessons, ({ one, many }) => ({
+    section: one(courseSections, { fields: [courseLessons.sectionId], references: [courseSections.id] }),
+    completions: many(lessonCompletions),
+}));
+
+// ============================================
+// COURSE ENROLLMENTS TABLE
+// ============================================
+export const courseEnrollments = sqliteTable('course_enrollments', {
+    id: text('id').primaryKey().$defaultFn(generateId),
+    storeId: text('store_id').references(() => stores.id, { onDelete: 'cascade' }).notNull(),
+    userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    productId: text('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
+    orderId: text('order_id').references(() => orders.id, { onDelete: 'cascade' }).notNull(),
+    enrolledAt: integer('enrolled_at', { mode: 'timestamp' }).$defaultFn(now),
+    completedAt: integer('completed_at', { mode: 'timestamp' }),
+}, (table) => ({
+    unqUserProduct: unique().on(table.userId, table.productId),
+}));
+
+export const courseEnrollmentsRelations = relations(courseEnrollments, ({ one, many }) => ({
+    store: one(stores, { fields: [courseEnrollments.storeId], references: [stores.id] }),
+    user: one(users, { fields: [courseEnrollments.userId], references: [users.id] }),
+    product: one(products, { fields: [courseEnrollments.productId], references: [products.id] }),
+    order: one(orders, { fields: [courseEnrollments.orderId], references: [orders.id] }),
+    completions: many(lessonCompletions),
+}));
+
+// ============================================
+// LESSON COMPLETIONS TABLE
+// ============================================
+export const lessonCompletions = sqliteTable('lesson_completions', {
+    id: text('id').primaryKey().$defaultFn(generateId),
+    enrollmentId: text('enrollment_id').references(() => courseEnrollments.id, { onDelete: 'cascade' }).notNull(),
+    lessonId: text('lesson_id').references(() => courseLessons.id, { onDelete: 'cascade' }).notNull(),
+    completedAt: integer('completed_at', { mode: 'timestamp' }).$defaultFn(now),
+}, (table) => ({
+    unqEnrollLesson: unique().on(table.enrollmentId, table.lessonId),
+}));
+
+export const lessonCompletionsRelations = relations(lessonCompletions, ({ one }) => ({
+    enrollment: one(courseEnrollments, { fields: [lessonCompletions.enrollmentId], references: [courseEnrollments.id] }),
+    lesson: one(courseLessons, { fields: [lessonCompletions.lessonId], references: [courseLessons.id] }),
+}));
+
 export type Store = typeof stores.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Order = typeof orders.$inferSelect;
@@ -438,3 +585,9 @@ export type CourierDelivery = typeof courierDeliveries.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type Wishlist = typeof wishlists.$inferSelect;
+export type EbookPurchase = typeof ebookPurchases.$inferSelect;
+export type EbookBookmark = typeof ebookBookmarks.$inferSelect;
+export type CourseSection = typeof courseSections.$inferSelect;
+export type CourseLesson = typeof courseLessons.$inferSelect;
+export type CourseEnrollment = typeof courseEnrollments.$inferSelect;
+export type LessonCompletion = typeof lessonCompletions.$inferSelect;

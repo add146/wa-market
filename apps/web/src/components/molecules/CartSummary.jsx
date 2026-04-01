@@ -4,6 +4,7 @@
  */
 function CartSummary({ totalItems, totalPrice, discount, subtotal }) {
     const formatPrice = (value) => {
+        if (!value || value === 0) return 'Gratis'
         return new Intl.NumberFormat('id-ID', {
             style: 'currency',
             currency: 'IDR',

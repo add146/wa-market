@@ -103,6 +103,9 @@ export const ordersApi = {
     create: (data) => api.post('/orders', data),
     approve: (id) => api.patch(`/orders/${id}/approve`),
     updateStatus: (id, status) => api.patch(`/orders/${id}/status`, { status }),
+    updateServiceProgress: (id, data) => api.patch(`/orders/${id}/service-progress`, data),
+    confirmSettlement: (id) => api.patch(`/orders/${id}/confirm-settlement`),
+    getServiceInfo: (id) => api.get(`/orders/${id}/service-info`),
     delete: (id) => api.delete(`/orders/${id}`),
     assignCourier: (id, data) => api.post(`/orders/${id}/assign-courier`, data),
     deliverDigital: (id) => api.patch(`/orders/${id}/deliver-digital`),
@@ -199,6 +202,13 @@ export const uploadApi = {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
     },
+    uploadEbook: async (file) => {
+        const formData = new FormData();
+        formData.append('ebook', file);
+        return api.post('/upload/ebook', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
     delete: (filename) => api.delete(`/upload/${filename}`),
 };
 
@@ -211,7 +221,41 @@ export const rajaongkirApi = {
 
 // Payment API
 export const paymentApi = {
-    create: (orderId, provider) => api.post('/payment/create', { orderId, provider }),
+    create: (orderId, provider, type = 'full') => api.post('/payment/create', { orderId, provider, type }),
     status: (orderId) => api.get(`/payment/status/${orderId}`),
+};
+
+// Ebooks API
+export const ebooksApi = {
+    getMyLibrary: () => api.get('/ebooks/my-library'),
+    checkAccess: (productId) => api.get(`/ebooks/${productId}/check-access`),
+    updateProgress: (productId, data) => api.patch(`/ebooks/${productId}/progress`, data),
+    getReadUrl: (productId, token) => `${api.defaults.baseURL}/s/${currentStoreSlug}/ebooks/${productId}/read?token=${token}`,
+    getBookmarks: (productId) => api.get(`/ebooks/${productId}/bookmarks`),
+    addBookmark: (productId, data) => api.post(`/ebooks/${productId}/bookmarks`, data),
+    updateBookmark: (id, data) => api.put(`/ebooks/bookmarks/${id}`, data),
+    deleteBookmark: (id) => api.delete(`/ebooks/bookmarks/${id}`),
+};
+
+// LMS Courses API
+export const coursesApi = {
+    // Admin Curriculum
+    getCurriculum: (productId) => api.get(`/courses/${productId}/curriculum`),
+    createSection: (productId, data) => api.post(`/courses/${productId}/sections`, data),
+    updateSection: (sectionId, data) => api.put(`/courses/sections/${sectionId}`, data),
+    deleteSection: (sectionId) => api.delete(`/courses/sections/${sectionId}`),
+    reorderSections: (productId, data) => api.put(`/courses/${productId}/sections/reorder`, data),
+    
+    createLesson: (sectionId, data) => api.post(`/courses/sections/${sectionId}/lessons`, data),
+    updateLesson: (lessonId, data) => api.put(`/courses/lessons/${lessonId}`, data),
+    deleteLesson: (lessonId) => api.delete(`/courses/lessons/${lessonId}`),
+    reorderLessons: (sectionId, data) => api.put(`/courses/sections/${sectionId}/lessons/reorder`, data),
+
+    // Student Learning
+    getMyCourses: () => api.get('/courses/my-courses'),
+    checkAccess: (productId) => api.get(`/courses/${productId}/check-access`),
+    getPlayer: (productId) => api.get(`/courses/${productId}/player`),
+    completeLesson: (productId, lessonId) => api.post(`/courses/${productId}/lessons/${lessonId}/complete`),
+    uncompleteLesson: (productId, lessonId) => api.delete(`/courses/${productId}/lessons/${lessonId}/complete`),
 };
 

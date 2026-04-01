@@ -8,6 +8,7 @@ function PaymentStatusPage() {
     const navigate = useNavigate()
     const [status, setStatus] = useState(null)
     const [loading, setLoading] = useState(true)
+    const [creatingSettlement, setCreatingSettlement] = useState(false)
 
     const fetchStatus = async () => {
         try {
@@ -30,10 +31,32 @@ function PaymentStatusPage() {
     const getStatusDisplay = () => {
         if (!status) return { icon: 'hourglass_empty', color: 'text-slate-400', label: 'Memuat...', bg: 'bg-slate-50 dark:bg-slate-800' }
 
+        if (status.hasServiceItems && status.serviceStatus === 'awaiting_settlement') {
+            return { icon: 'account_balance_wallet', color: 'text-orange-500', label: 'Menunggu Pelunasan', bg: 'bg-orange-50 dark:bg-orange-900/20' }
+        }
+
         const ps = status.paymentStatus
         if (ps === 'paid') return { icon: 'check_circle', color: 'text-green-500', label: 'Pembayaran Berhasil! ✅', bg: 'bg-green-50 dark:bg-green-900/20' }
+        if (ps === 'dp_paid') return { icon: 'check_circle', color: 'text-purple-500', label: 'DP Berhasil Dibayar! ✅', bg: 'bg-purple-50 dark:bg-purple-900/20' }
         if (ps === 'expired') return { icon: 'cancel', color: 'text-red-500', label: 'Pembayaran Kedaluwarsa', bg: 'bg-red-50 dark:bg-red-900/20' }
         return { icon: 'pending', color: 'text-amber-500', label: 'Menunggu Pembayaran...', bg: 'bg-amber-50 dark:bg-amber-900/20' }
+    }
+
+    const handleCreateSettlement = async () => {
+        setCreatingSettlement(true)
+        try {
+            const res = await paymentApi.create(orderId, status.paymentMethod, 'settlement')
+            if (res.data?.paymentUrl) {
+                window.location.href = res.data.paymentUrl
+            } else {
+                fetchStatus()
+            }
+        } catch (err) {
+            console.error('Failed to create settlement invoice:', err)
+            alert('Gagal membuat tagihan pelunasan. Coba ubah metode pembayaran di admin atau hubungi toko.')
+        } finally {
+            setCreatingSettlement(false)
+        }
     }
 
     const display = getStatusDisplay()
@@ -61,9 +84,20 @@ function PaymentStatusPage() {
                                 <span className="font-bold text-slate-900 dark:text-white">{status.orderNumber}</span>
                             </div>
                             <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
-                                <span className="text-slate-500">Total</span>
-                                <span className="font-bold text-primary">Rp {status.total?.toLocaleString('id-ID')}</span>
+                                <span className="text-slate-500">Nominal Tagihan Saat Ini</span>
+                                <span className="font-bold text-primary">
+                                    Rp {(status.serviceStatus === 'awaiting_settlement' 
+                                            ? status.settlementAmount 
+                                            : (status.hasServiceItems && status.serviceStatus === 'waiting_dp' ? status.dpAmount : status.total)
+                                        )?.toLocaleString('id-ID')}
+                                </span>
                             </div>
+                            {status.hasServiceItems && (
+                                <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
+                                    <span className="text-slate-500">Total Harga Layanan</span>
+                                    <span className="font-semibold text-slate-700 dark:text-slate-300">Rp {status.total?.toLocaleString('id-ID')}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
                                 <span className="text-slate-500">Metode</span>
                                 <span className="font-semibold text-slate-900 dark:text-white capitalize">{status.paymentMethod}</span>
@@ -74,19 +108,56 @@ function PaymentStatusPage() {
                             </div>
 
                             {/* Retry payment if still pending */}
-                            {status.paymentStatus === 'unpaid' && status.payment?.paymentUrl && (
+                            {(status.paymentStatus === 'unpaid' || status.paymentStatus === 'expired') && status.payment?.paymentUrl && status.paymentStatus !== 'paid' && status.paymentStatus !== 'dp_paid' && (
                                 <a
                                     href={status.payment.paymentUrl}
-                                    className="block w-full text-center py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-colors"
+                                    className="block w-full text-center py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-colors mt-4"
                                 >
                                     Bayar Sekarang
                                 </a>
                             )}
 
-                            {status.paymentStatus === 'paid' && (
-                                <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                            {/* Show create settlement button if status is awaiting_settlement but no pending invoice for settlement generated yet */}
+                            {status.serviceStatus === 'awaiting_settlement' && (!status.payment || status.payment.status === 'paid' || status.payment.status === 'expired') && (
+                                <button
+                                    onClick={handleCreateSettlement}
+                                    disabled={creatingSettlement}
+                                    className="block w-full text-center py-3 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 transition-colors mt-4 disabled:opacity-50"
+                                >
+                                    {creatingSettlement ? 'Membuat Tagihan...' : 'Buat Tagihan Pelunasan'}
+                                </button>
+                            )}
+
+                            {/* Show pending settlement invoice if generated */}
+                            {status.serviceStatus === 'awaiting_settlement' && status.payment?.status === 'unpaid' && status.payment?.paymentUrl && (
+                                <a
+                                    href={status.payment.paymentUrl}
+                                    className="block w-full text-center py-3 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 transition-colors mt-4"
+                                >
+                                    Bayar Pelunasan Sekarang
+                                </a>
+                            )}
+
+                            {status.paymentStatus === 'paid' && !status.serviceStatus && (
+                                <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl mt-4">
                                     <p className="text-green-700 dark:text-green-400 font-medium">
                                         🎉 Terima kasih! Pesanan Anda sedang diproses.
+                                    </p>
+                                </div>
+                            )}
+
+                            {status.paymentStatus === 'dp_paid' && status.serviceStatus === 'dp_paid' && (
+                                <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl mt-4">
+                                    <p className="text-purple-700 dark:text-purple-400 font-medium">
+                                        🎉 Pembayaran DP berhasil! Menunggu Admin memulai status pengerjaan produk jasa Anda.
+                                    </p>
+                                </div>
+                            )}
+                            
+                            {status.serviceStatus === 'settled' && (
+                                <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl mt-4">
+                                    <p className="text-green-700 dark:text-green-400 font-medium">
+                                        🎉 Pembayaran lunas! Layanan Jasa Anda telah selesai sepenuhnya.
                                     </p>
                                 </div>
                             )}

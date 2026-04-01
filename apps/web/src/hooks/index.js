@@ -6,3 +6,5 @@ export { useSettings, useSetting, useShippingOptions } from './useSettings';
 export * from './useCouriers';
 export * from './useRegisterStore';
 export * from './useSuperadmin';
+export * from './useEbooks';
+export * from './useCourses';

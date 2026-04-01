@@ -1,0 +1,8 @@
+- `[x]` Inisialisasi State `activeTab` di AdminSettingsPage.jsx
+- `[x]` Implementasi Navigasi Tab (UI Header)
+- `[x]` Migrasi Konten: Tab Profil Toko
+- `[x]` Migrasi Konten: Tab Pengiriman (GPS/Radius/Jadwal)
+- `[x]` Migrasi Konten: Tab Pembayaran (Gateway)
+- `[x]` Migrasi Konten: Tab Integrasi (WAHA)
+- `[x]` Reposisi Tombol Simpan & Cleanup Layout
+- `[x]` Verifikasi & Build

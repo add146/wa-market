@@ -101,7 +101,7 @@ function AdminCouriersPage() {
 
     const formatPhone = (phone) => {
         if (!phone) return '-'
-        const clean = phone.replace(/\D/g, '')
+        const clean = String(phone).replace(/\D/g, '')
         if (clean.startsWith('62') && clean.length > 10) {
             return `+${clean.slice(0, 2)} ${clean.slice(2, 5)}-${clean.slice(5, 9)}-${clean.slice(9)}`
         }
@@ -127,11 +127,13 @@ function AdminCouriersPage() {
     const totalActive = deliveryHistory.filter(d => ['assigned', 'picked_up', 'on_the_way'].includes(d.status)).length
     const totalFailed = deliveryHistory.filter(d => d.status === 'failed').length
 
+    const safeCouriers = Array.isArray(couriers) ? couriers : []
+
     return (
         <>
             <AdminHeader
                 title="Kelola Kurir Toko"
-                subtitle={`${couriers.length} kurir terdaftar`}
+                subtitle={`${safeCouriers.length} kurir terdaftar`}
                 primaryAction={{
                     label: 'Tambah Kurir',
                     icon: 'add',
@@ -143,7 +145,7 @@ function AdminCouriersPage() {
                 <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                     {isLoading ? (
                         <div className="p-8 text-center text-slate-500">Loading...</div>
-                    ) : couriers.length === 0 ? (
+                    ) : safeCouriers.length === 0 ? (
                         <div className="p-8 text-center text-slate-500">
                             <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
                                 <Icon name="local_shipping" size={32} />
@@ -168,7 +170,7 @@ function AdminCouriersPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                                {couriers.map(courier => (
+                                {safeCouriers.map(courier => (
                                     <tr key={courier.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">

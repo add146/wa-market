@@ -40,6 +40,7 @@ Subtotal: Rp ${order.subtotal.toLocaleString('id-ID')}
 ${order.productDiscount ? `Diskon Produk: -Rp ${order.productDiscount.toLocaleString('id-ID')}` : ''}
 ${order.couponCode ? `Kupon (${order.couponCode}): -Rp ${order.couponDiscount?.toLocaleString('id-ID') || 0}` : ''}
 Ongkir: +Rp ${order.shippingCost.toLocaleString('id-ID')}
+${(order as any).shippingDiscount ? `Potongan Ongkir: -Rp ${(order as any).shippingDiscount.toLocaleString('id-ID')}` : ''}
 ${order.uniqueCode ? `Kode Unik: +Rp ${order.uniqueCode}` : ''}
 ━━━━━━━━━━━━━━━━━━━━
 *TOTAL BAYAR: Rp ${order.total.toLocaleString('id-ID')}*

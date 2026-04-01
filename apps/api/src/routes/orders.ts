@@ -3,7 +3,8 @@ import { getDb } from '../db';
 import { orders, orderItems, products, storeSettings, users, courierDeliveries } from '../db/schema';
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { authMiddleware, optionalAuthMiddleware, hashPassword } from '../middleware/auth';
-import { formatOrderMessage, sendWahaMessage, generateWhatsAppUrl, formatCourierNotification, formatDigitalDeliveryMessage, formatStatusChangeNotification } from '../lib/whatsapp';
+import { formatOrderMessage, sendWahaMessage, generateWhatsAppUrl, formatCourierNotification, formatDigitalDeliveryMessage, formatStatusChangeNotification, formatServiceProgressUpdate, formatServiceSettlementRequest } from '../lib/whatsapp';
+import { grantDigitalAccess } from '../lib/digital_access';
 import type { Env } from '../index';
 
 type Variables = { store: any, user: any };
@@ -87,8 +88,8 @@ router.post('/', optionalAuthMiddleware, async (c) => {
         
         const orderNumber = await generateOrderNumber(db, store.id);
         
-        const subtotal = body.shippingCost + body.items.reduce((acc: number, item: any) => acc + (item.quantity * item.price), 0);
-        const total = subtotal;
+        const subtotal = body.items.reduce((acc: number, item: any) => acc + (item.quantity * item.price), 0);
+        const total = subtotal + (body.shippingCost || 0) - (body.shippingDiscount || 0) - (body.couponDiscount || 0) + (body.uniqueCode || 0);
 
         // Fetch products to check for 'digital' and 'preorder' types
         const productIds = body.items.map((item: any) => item.productId);
@@ -109,7 +110,7 @@ router.post('/', optionalAuthMiddleware, async (c) => {
             }
         }
 
-        let orderUserId = user ? user.id : null;
+        let orderUserId = null;
         let generatedPassword = null;
         let orderPhone = body.guestPhone || body.recipientPhone;
 
@@ -121,7 +122,7 @@ router.post('/', optionalAuthMiddleware, async (c) => {
             return cleaned;
         };
 
-        if (!user && orderPhone) {
+        if (orderPhone) {
             const cleanPhone = standardizePhone(orderPhone);
             const [existingUser] = await db.select().from(users).where(
                 and(eq(users.phone, cleanPhone), eq(users.storeId, store.id))
@@ -141,7 +142,12 @@ router.post('/', optionalAuthMiddleware, async (c) => {
                 }).returning();
                 orderUserId = newUser.id;
             }
+        } else if (user) {
+            orderUserId = user.id;
         }
+
+        const isOnlyDigital = !productsInCart.some(p => p.productType !== 'digital');
+        const initialStatus = (total <= 0 && isOnlyDigital) ? 'completed' : 'pending';
 
         // Create Order
         const [insertedOrder] = await db.insert(orders).values({
@@ -160,15 +166,23 @@ router.post('/', optionalAuthMiddleware, async (c) => {
             longitude: body.longitude || null,
             courierName: body.courierName || 'Manual',
             shippingCost: body.shippingCost || 0,
+            shippingDiscount: body.shippingDiscount || 0,
             subtotal,
+            couponCode: body.couponCode || null,
+            couponDiscount: body.couponDiscount || 0,
+            uniqueCode: body.uniqueCode || 0,
             total,
-            status: 'pending',
+            status: initialStatus,
             paymentMethod: body.paymentMethod === 'cod' ? 'cod' : 'whatsapp',
             deliverySlot: body.deliverySlot || null,
             hasDigitalItems,
             hasPreorderItems,
             maxPreorderDays,
             digitalDeliveryStatus: hasDigitalItems ? 'pending' : null,
+            hasServiceItems: body.hasServiceItems || false,
+            dpAmount: body.dpAmount || 0,
+            settlementAmount: body.settlementAmount || 0,
+            serviceStatus: body.hasServiceItems ? 'waiting_dp' : null,
         }).returning();
 
         // Insert Items
@@ -181,6 +195,10 @@ router.post('/', optionalAuthMiddleware, async (c) => {
             subtotal: item.price * item.quantity
         }));
         await db.insert(orderItems).values(itemsToInsert);
+
+        if (initialStatus === 'completed' && orderUserId) {
+            await grantDigitalAccess(db, store.id, insertedOrder.id, orderUserId);
+        }
 
         // Fetch Store Settings for WhatsApp processing
         const allSettings = await db.select().from(storeSettings).where(eq(storeSettings.storeId, store.id));
@@ -442,6 +460,12 @@ router.patch('/:id/status', authMiddleware, async (c) => {
 
         await db.update(orders).set({ status }).where(eq(orders.id, orderId));
 
+        if (status === 'completed' || status === 'processing' || status === 'approved') {
+            if (order.userId) {
+                await grantDigitalAccess(db, store.id, orderId, order.userId);
+            }
+        }
+
         // Send WhatsApp notification for status change
         const allSettings = await db.select().from(storeSettings).where(eq(storeSettings.storeId, store.id));
         const getConfig = (key: string) => allSettings.find(s => s.key === key)?.value || '';
@@ -489,6 +513,11 @@ router.patch('/:id/approve', authMiddleware, async (c) => {
             and(eq(orders.id, orderId), eq(orders.storeId, store.id))
         );
 
+        const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+        if (order?.userId) {
+            await grantDigitalAccess(db, store.id, orderId, order.userId);
+        }
+
         return c.json({ success: true });
     } catch (e) {
         return c.json({ error: 'Internal Error' }, 500);
@@ -517,6 +546,128 @@ router.delete('/:id', authMiddleware, async (c) => {
         );
 
         return c.json({ success: true });
+    } catch (e) {
+        return c.json({ error: 'Internal Error' }, 500);
+    }
+});
+
+
+/**
+ * PATCH /api/s/:slug/orders/:id/service-progress (Admin)
+ */
+router.patch('/:id/service-progress', authMiddleware, async (c) => {
+    try {
+        const db = getDb(c.env);
+        const store = c.get('store');
+        const user: any = c.get('user');
+        const orderId = c.req.param('id') as string;
+        const body = await c.req.json();
+        const { status, notes } = body;
+
+        if (user.role !== 'admin' && user.role !== 'superadmin' && user.role !== 'seller') {
+            return c.json({ error: 'Forbidden' }, 403);
+        }
+
+        const [order] = await db.select().from(orders).where(
+            and(eq(orders.id, orderId), eq(orders.storeId, store.id))
+        );
+        if (!order) return c.json({ error: 'Order not found' }, 404);
+
+        await db.update(orders).set({ serviceStatus: status, serviceNotes: notes || order.serviceNotes }).where(eq(orders.id, orderId));
+
+        // WA Notification
+        const allSettings = await db.select().from(storeSettings).where(eq(storeSettings.storeId, store.id));
+        const getConfig = (key: string) => allSettings.find(s => s.key === key)?.value || '';
+        const storeName = getConfig('store_name') || store.name;
+        const wahaUrl = getConfig('waha_server_url');
+        const wahaKey = getConfig('waha_api_key');
+        const wahaSession = getConfig('waha_session') || 'default';
+
+        let whatsappSent = false;
+        let whatsappUrl = '';
+
+        if (order.recipientPhone) {
+            let message = '';
+            if (status === 'awaiting_settlement') {
+                const updatedOrder = { ...order, serviceStatus: status, settlementAmount: order.settlementAmount };
+                message = formatServiceSettlementRequest(updatedOrder as any, storeName);
+            } else if (status === 'in_progress' && notes) {
+                message = formatServiceProgressUpdate(order as any, storeName, notes);
+            }
+
+            if (message) {
+                if (wahaUrl && wahaUrl.trim() !== '') {
+                    whatsappSent = await sendWahaMessage(wahaUrl, wahaKey, wahaSession, order.recipientPhone, message);
+                }
+                whatsappUrl = generateWhatsAppUrl(order.recipientPhone, message);
+            }
+        }
+
+        return c.json({ success: true, whatsappSent, whatsappUrl });
+    } catch (e) {
+        return c.json({ error: 'Internal Error' }, 500);
+    }
+});
+
+/**
+ * PATCH /api/s/:slug/orders/:id/confirm-settlement (Admin)
+ */
+router.patch('/:id/confirm-settlement', authMiddleware, async (c) => {
+    try {
+        const db = getDb(c.env);
+        const store = c.get('store');
+        const user: any = c.get('user');
+        const orderId = c.req.param('id') as string;
+
+        if (user.role !== 'admin' && user.role !== 'superadmin' && user.role !== 'seller') {
+            return c.json({ error: 'Forbidden' }, 403);
+        }
+
+        const [order] = await db.select().from(orders).where(
+            and(eq(orders.id, orderId), eq(orders.storeId, store.id))
+        );
+        if (!order) return c.json({ error: 'Order not found' }, 404);
+
+        await db.update(orders).set({ 
+            serviceStatus: 'settled', 
+            settlementPaidAt: new Date() as any,
+            status: 'completed'
+        }).where(eq(orders.id, orderId));
+
+        if (order.userId) {
+            await grantDigitalAccess(db, store.id, orderId, order.userId);
+        }
+
+        return c.json({ success: true });
+    } catch (e) {
+        return c.json({ error: 'Internal Error' }, 500);
+    }
+});
+
+/**
+ * GET /api/s/:slug/orders/:id/service-info
+ */
+router.get('/:id/service-info', async (c) => {
+    try {
+        const db = getDb(c.env);
+        const store = c.get('store');
+        const orderId = c.req.param('id') as string;
+
+        const [order] = await db.select({
+            hasServiceItems: orders.hasServiceItems,
+            dpAmount: orders.dpAmount,
+            dpPaidAt: orders.dpPaidAt,
+            settlementAmount: orders.settlementAmount,
+            settlementPaidAt: orders.settlementPaidAt,
+            serviceStatus: orders.serviceStatus,
+            serviceNotes: orders.serviceNotes,
+        }).from(orders).where(
+            and(eq(orders.id, orderId), eq(orders.storeId, store.id))
+        );
+
+        if (!order) return c.json({ error: 'Order not found' }, 404);
+
+        return c.json({ data: order });
     } catch (e) {
         return c.json({ error: 'Internal Error' }, 500);
     }

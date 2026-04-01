@@ -74,11 +74,12 @@ function ProductCard({ product }) {
         >
             {/* Product Image */}
             <div className="relative aspect-[4/4] w-full overflow-hidden bg-gray-100">
-                <div
-                    className="h-full w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
-                    style={{ backgroundImage: `url('${getImageUrl()}')` }}
-                    role="img"
-                    aria-label={imageAlt || name}
+                <img
+                    src={getImageUrl() || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='}
+                    alt={imageAlt || name}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
 
                 {discountPercent && (

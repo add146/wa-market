@@ -79,7 +79,7 @@ export async function onRequest(context) {
                 if (!storeInfo) storeInfo = {};
                 storeInfo.tagline = settingsData.store_tagline || "";
                 storeInfo.description = settingsData.store_description || "";
-                storeInfo.logo = settingsData.store_logo || "";
+                storeInfo.logo = settingsData.logo_url || "";
                 storeInfo.name = settingsData.store_name || storeInfo.name || storeSlug;
             }
         }

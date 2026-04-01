@@ -51,9 +51,11 @@ const createOrderSchema = z.object({
     courierName: z.string().min(2).max(100),
     shippingCost: z.number().int().min(0),
 
+    shippingDiscount: z.number().int().min(0).optional().default(0),
     // Coupon
     couponCode: z.string().max(50).optional().nullable(),
-
+    couponDiscount: z.number().int().min(0).optional().default(0),
+    uniqueCode: z.number().int().min(0).optional(),
     // Guest info (for non-logged in users)
     guestPhone: z.string().min(10).max(20).optional(),
     guestEmail: z.string().email().optional(),
@@ -264,31 +266,12 @@ router.post('/', optionalAuthMiddleware, async (req: Request, res: Response) => 
 
         // Calculate totals
         const subtotal = orderItemsData.reduce((sum, item) => sum + item.subtotal, 0);
-        const productDiscount = 0; // Calculate based on product discounts if needed
-        let couponDiscount = 0;
 
-        // Validate coupon if provided
-        if (data.couponCode) {
-            const [coupon] = await db.select().from(coupons)
-                .where(and(eq(coupons.code, data.couponCode), eq(coupons.isActive, true)));
-
-            if (coupon && subtotal >= (coupon.minPurchase || 0)) {
-                if (coupon.discountType === 'percentage') {
-                    couponDiscount = Math.floor(subtotal * coupon.discountValue / 100);
-                    if (coupon.maxDiscount) {
-                        couponDiscount = Math.min(couponDiscount, coupon.maxDiscount);
-                    }
-                } else {
-                    couponDiscount = coupon.discountValue;
-                }
-            }
-        }
-
-        // Generate unique code (last 3 digits for transfer)
-        const uniqueCode = Math.floor(Math.random() * 900) + 100;
-
-        // Calculate total
-        const total = subtotal - productDiscount - couponDiscount + data.shippingCost + uniqueCode;
+        // In Express backend, trust uniqueCode and discounts from body (synced with frontend)
+        const couponDiscount = data.couponDiscount || 0;
+        const shippingDiscount = data.shippingDiscount || 0;
+        const uniqueCode = data.uniqueCode !== undefined ? data.uniqueCode : (Math.floor(Math.random() * 900) + 100);
+        const total = subtotal + data.shippingCost - shippingDiscount - couponDiscount + uniqueCode;
 
         // Create order
         const [newOrder] = await db.insert(orders).values({
@@ -305,8 +288,9 @@ router.post('/', optionalAuthMiddleware, async (req: Request, res: Response) => 
             // Note: shippingOptionId removed as we now use RajaOngkir courier codes dynamically
             courierName: data.courierName,
             shippingCost: data.shippingCost,
+            shippingDiscount,
             subtotal,
-            productDiscount,
+            productDiscount: 0,
             couponCode: data.couponCode || null,
             couponDiscount,
             uniqueCode,

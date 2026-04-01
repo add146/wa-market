@@ -163,7 +163,22 @@ function CheckoutPage() {
         const p = fetchedProducts[item.productId]
         return p?.productType === 'digital'
     })
+    const isOnlyService = cartItems.length > 0 && cartItems.every(item => {
+        const p = fetchedProducts[item.productId]
+        return p?.productType === 'service'
+    })
+    const allSkipShipping = cartItems.length > 0 && cartItems.every(item => {
+        const p = fetchedProducts[item.productId]
+        return p?.productType === 'digital' || (p?.productType === 'service' && !p?.requiresShipping)
+    })
+    const hasServiceWithShipping = cartItems.some(item => {
+        const p = fetchedProducts[item.productId]
+        return p?.productType === 'service' && p?.requiresShipping
+    })
     const hasDigital = cartItems.some(item => fetchedProducts[item.productId]?.productType === 'digital')
+    const hasService = cartItems.some(item => fetchedProducts[item.productId]?.productType === 'service')
+    const hasNonService = cartItems.some(item => fetchedProducts[item.productId]?.productType !== 'service')
+    const serviceMixError = hasService && hasNonService
     const hasPreorder = cartItems.some(item => fetchedProducts[item.productId]?.productType === 'preorder')
     const maxPreorderDays = cartItems.reduce((max, item) => {
         const p = fetchedProducts[item.productId]
@@ -171,22 +186,52 @@ function CheckoutPage() {
         return Math.max(max, days)
     }, 0)
 
+    const { data: uniqueCodeEnabled } = useSetting('unique_code_enabled')
+    const isUniqueCodeEnabled = uniqueCodeEnabled === 'true' || uniqueCodeEnabled === true
+
+    // Generate stable random unique code (1-99) for this session
+    const [stableRandomCode] = useState(() => Math.floor(Math.random() * 99) + 1)
+
     // Calculate subtotal from cart
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
     // Use fresh weights from API if available, otherwise fallback to cart item weight or 500g
-    // Exclude digital products from weight entirely
+    // Exclude digital & service products from weight entirely
     const totalWeight = cartItems.reduce((sum, item) => {
         const p = fetchedProducts[item.productId]
-        if (p?.productType === 'digital') return sum
+        if (p?.productType === 'digital' || (p?.productType === 'service' && !p?.requiresShipping)) return sum
 
         const weight = p?.weight || item.weight || 500
         return sum + (weight * item.quantity)
     }, 0)
 
+    // Calculate required DP for Service items
+    const totalDP = hasService ? cartItems.reduce((sum, item) => {
+        const p = fetchedProducts[item.productId]
+        if (p?.productType === 'service') {
+            const dpValue = p.dpValue || 0
+            const dpType = p.dpType || 'percentage'
+            if (dpType === 'percentage') {
+                return sum + ((item.price * item.quantity) * (dpValue / 100))
+            } else {
+                return sum + (dpValue * item.quantity)
+            }
+        }
+        return sum
+    }, 0) : 0
+
     // Shipping cost from selected courier (own courier = uses store setting, or free)
     const shippingCost = shippingType === 'own_courier' ? ownCourierCost : (selectedCourier?.cost || 0)
-    const uniqueCode = 123
-    const total = subtotal - couponDiscount + shippingCost - shippingDiscount + uniqueCode
+    
+    // Unique code logic
+    const uniqueCode = (isUniqueCodeEnabled && !(allSkipShipping && (subtotal - (couponDiscount || 0)) <= 0)) 
+        ? stableRandomCode 
+        : 0
+
+    const total = subtotal - (couponDiscount || 0) + (allSkipShipping ? 0 : shippingCost) - (shippingDiscount || 0) + uniqueCode
+    
+    // DP and Settlement amounts for API
+    const finalDpAmount = hasService ? (totalDP - (couponDiscount || 0) + uniqueCode) : 0
+    const finalSettlementAmount = hasService ? (subtotal - (couponDiscount || 0) + uniqueCode - finalDpAmount) : 0
 
     // Fetch shipping options to get discount/potongan ongkir and fixed cost options
     useEffect(() => {
@@ -340,8 +385,13 @@ function CheckoutPage() {
             return
         }
 
+        if (serviceMixError) {
+            setSubmitError('Produk Jasa tidak dapat dicampur dengan produk lain (Fisik/Digital) dalam 1 pesanan. Mohon pisahkan keranjang belanja Anda.')
+            return
+        }
+
         // Validation differs by shipping type
-        if (!isOnlyDigital) {
+        if (!allSkipShipping) {
             if (shippingType === 'own_courier') {
                 // For own courier, GPS or address is enough, no courier selection needed
                 if (!gpsLocation && !address) {
@@ -391,20 +441,28 @@ function CheckoutPage() {
                 city: cityName,
                 district: subName,
                 address,
-                shippingType: isOnlyDigital ? 'digital' : shippingType,
+                shippingType: allSkipShipping ? 'digital' : shippingType,
                 latitude: deliveryLat?.toString() || '',
                 longitude: deliveryLng?.toString() || '',
-                shippingOptionId: isOnlyDigital ? null : (selectedCourier?.id || null),
+                shippingOptionId: allSkipShipping ? null : (selectedCourier?.id || null),
                 courierName: isOnlyDigital
                     ? 'Produk Digital'
-                    : (shippingType === 'own_courier'
-                        ? 'Kurir Toko'
-                        : `${selectedCourier?.name || 'Manual'} - ${selectedCourier?.service || ''}`),
-                shippingCost: isOnlyDigital ? 0 : (shippingType === 'own_courier' ? ownCourierCost : (selectedCourier?.cost || 0)),
+                    : (isOnlyService && allSkipShipping)
+                        ? 'Produk Jasa' 
+                        : (shippingType === 'own_courier'
+                            ? 'Kurir Toko'
+                            : `${selectedCourier?.name || 'Manual'} - ${selectedCourier?.service || ''}`),
+                shippingCost: allSkipShipping ? 0 : (shippingType === 'own_courier' ? ownCourierCost : (selectedCourier?.cost || 0)),
+                shippingDiscount: shippingDiscount || 0,
                 couponCode: appliedCoupon,
+                couponDiscount: couponDiscount || 0,
+                uniqueCode,
                 guestPhone: `62${phone}`,
                 paymentMethod,
                 deliverySlot: selectedDeliverySlot ? `${selectedDeliverySlot.label}, ${selectedDeliverySlot.time}` : '',
+                hasServiceItems: hasService,
+                dpAmount: finalDpAmount,
+                settlementAmount: finalSettlementAmount,
                 items: cartItems.map(item => ({
                     productId: item.productId,
                     productName: item.name,
@@ -417,7 +475,13 @@ function CheckoutPage() {
             const result = await createOrder.mutateAsync(orderData)
 
             // Handle payment based on selected method
-            if (paymentMethod === 'whatsapp' || paymentMethod === 'cod') {
+            if (result.order.status === 'completed') {
+                // Order is free and completed immediately
+                clearCart()
+                const msg = `✅ Pesanan berhasil!\n\nNo. Order: ${result.order.orderNumber}\n\nProduk Digital Anda telah berhasil diproses secara gratis. Akses produk Anda telah dibuka.`;
+                alert(msg)
+                navigate('/my-orders')
+            } else if (paymentMethod === 'whatsapp' || paymentMethod === 'cod') {
                 // Traditional WhatsApp flow or COD
                 if (result.whatsappUrl) {
                     window.open(result.whatsappUrl, '_blank')
@@ -431,7 +495,8 @@ function CheckoutPage() {
             } else {
                 // Online payment (Xendit / Midtrans)
                 try {
-                    const payResult = await paymentApi.create(result.order.id, paymentMethod)
+                    const payType = hasService ? 'dp' : 'full'
+                    const payResult = await paymentApi.create(result.order.id, paymentMethod, payType)
                     const payData = payResult.data
                     if (payData.paymentUrl) {
                         clearCart()
@@ -504,6 +569,18 @@ function CheckoutPage() {
                                     Pesanan Anda hanya berisi produk <strong>Digital</strong>. Anda tidak dikenakan biaya ongkos kirim.
                                 </div>
                             )}
+                            {hasService && (
+                                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl mb-4 text-sm text-purple-700 dark:text-purple-400">
+                                    <Icon name="construction" size={16} className="inline mr-2 align-text-bottom" />
+                                    Pesanan Anda mengandung produk <strong>Jasa</strong>. Pembayaran akan ditagihkan secara bertahap (DP di awal, Pelunasan setelah selesai).
+                                </div>
+                            )}
+                            {serviceMixError && (
+                                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl mb-4 text-sm text-red-700 dark:text-red-400">
+                                    <Icon name="warning" size={16} className="inline mr-2 align-text-bottom" />
+                                    <strong>Perhatian:</strong> Produk Jasa tidak dapat dicampur dengan produk Fisik/Digital dalam 1 pesanan. Mohon pisahkan transaksi Anda.
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Alamat Lengkap (Beserta Nomor/Patokan)</label>
@@ -513,8 +590,16 @@ function CheckoutPage() {
                     </div>
 
                     {/* ─── Shipping Type Toggle ─── */}
-                    {!isOnlyDigital && (
+                    {!allSkipShipping && (
                         <>
+                            {hasServiceWithShipping && (
+                                <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/10 border-l-4 border-purple-500 rounded-r-xl">
+                                    <p className="text-sm text-purple-700 dark:text-purple-300">
+                                        <Icon name="info" size={16} className="inline mr-2 align-text-bottom" />
+                                        Pesanan Anda mengandung layanan jasa yang memerlukan pengiriman fisik (perangkat/dokumen). Silakan isi lokasi dan pilih opsi pengiriman.
+                                    </p>
+                                </div>
+                            )}
                     <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
                         <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                             <Icon name="local_shipping" size={20} className="text-primary" />
@@ -833,8 +918,11 @@ function CheckoutPage() {
                                         const dayIdx = (slotDate.getDay() + 6) % 7 // 0=Mon, 6=Sun
                                         const dayKey = dayKeyOrder[dayIdx]
                                         
-                                        const slots = schedule[dayKey]
-                                        if (!Array.isArray(slots) || slots.length === 0) continue
+                                        const daySchedule = schedule[dayKey]
+                                                        // New format: array of delivery times e.g. ['08:00','10:00','14:00']
+                                                        if (!Array.isArray(daySchedule) || daySchedule.length === 0) continue
+                                                        const slots = daySchedule.filter(t => /^\d{2}:\d{2}$/.test(t))
+                                                        if (slots.length === 0) continue
 
                                         const dateStr = slotDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' })
 
@@ -1235,15 +1323,19 @@ function CheckoutPage() {
                             totalWeight={`${(totalWeight / 1000).toFixed(1)} kg`}
                             productDiscount={null}
                             couponDiscount={couponDiscount > 0 ? `Rp ${couponDiscount.toLocaleString('id-ID')}` : null}
-                            shippingCost={isOnlyDigital ? 'Gratis (Digital)' : (shippingType === 'expedition' && !selectedCourier ? 'Pilih kurir' : (shippingCost === 0 ? 'Gratis' : `Rp ${shippingCost.toLocaleString('id-ID')}`))}
+                            shippingCost={allSkipShipping ? ((isOnlyService && allSkipShipping) ? '0 (Jasa)' : 'Gratis (Digital)') : (shippingType === 'expedition' && !selectedCourier ? 'Pilih kurir' : (shippingCost === 0 ? 'Gratis' : `Rp ${shippingCost.toLocaleString('id-ID')}`))}
                             shippingDiscount={shippingDiscount > 0 ? `Rp ${shippingDiscount.toLocaleString('id-ID')}` : null}
-                            shippingName={isOnlyDigital ? 'Produk Digital' : (shippingType === 'own_courier' ? 'Kurir Toko' : (selectedCourier ? `${selectedCourier.name} - ${selectedCourier.service}` : 'Pilih Kurir'))}
+                            shippingName={isOnlyDigital ? 'Produk Digital' : ((isOnlyService && allSkipShipping) ? 'Produk Jasa' : (shippingType === 'own_courier' ? 'Kurir Toko' : (selectedCourier ? `${selectedCourier.name} - ${selectedCourier.service}` : 'Pilih Kurir')))}
                             uniqueCode={`Rp ${uniqueCode}`}
-                            total={`Rp ${total.toLocaleString('id-ID')}`}
+                            total={`Rp ${(hasService ? finalDpAmount : total).toLocaleString('id-ID')}`}
                             totalSavings={(couponDiscount + shippingDiscount) > 0 ? `Rp ${(couponDiscount + shippingDiscount).toLocaleString('id-ID')}` : null}
                             onCheckout={handleCheckout}
                             isLoading={createOrder.isPending}
                             paymentMethod={paymentMethod}
+                            isService={hasService}
+                            serviceSettlementAmount={hasService ? `Rp ${finalSettlementAmount.toLocaleString('id-ID')}` : null}
+                            serviceFullAmount={hasService ? `Rp ${total.toLocaleString('id-ID')}` : null}
+                            disabled={serviceMixError}
                         />
 
                         <TrustBadges />

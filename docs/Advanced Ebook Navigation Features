@@ -1,0 +1,59 @@
+# Advanced Ebook Navigation Features
+
+Sejalan dengan gambar referensi yang Anda berikan, Anda menginginkan dua fitur panel navigasi samping (Drawer) pada *Eboot Reader*: **Chapters** (Daftar Isi) dan **Bookmarks** (Penanda Halaman dengan pratinjau mini), serta fitur **Highlighting** (Penandaan Teks).
+
+Mengingat kompleksitas teknis fitur ini di lingkungan *web browser*, saya menyusun rencana implementasi berikut secara bertahap.
+
+## Proposed Changes
+
+### 1. Database Schema Updates
+Untuk mendukung *bookmark* jamak dengan judul kustom, kita harus mengubah struktur *database*.
+
+#### [MODIFY] [schema.ts](file:///c:/Aplikasi/wamarket/apps/api/src/db/schema.ts)
+Menambahkan tabel baru `ebook_bookmarks` dengan kolom:
+- `id` (UUID Primary Key)
+- `userId` (Relasi ke tabel users)
+- `productId` (Relasi ke tabel products)
+- `page` (Nomor Halaman Integer)
+- `title` (Teks judul kustom *bookmark*)
+- `createdAt` (Timestamp)
+
+### 2. Backend API
+Kita perlu merancang API khusus untuk CRUD *bookmark*.
+
+#### [MODIFY] [ebooks.ts](file:///c:/Aplikasi/wamarket/apps/api/src/routes/ebooks.ts)
+Menambahkan *endpoints* baru:
+- `GET /bookmarks/:productId` - Mengambil daftar penanda.
+- `POST /bookmarks/:productId` - Membuat penanda baru.
+- `PUT /bookmarks/:id` - Mengubah judul penanda kustom.
+- `DELETE /bookmarks/:id` - Menghapus penanda.
+
+### 3. Frontend Architecture
+
+#### [MODIFY] [hooks/useEbooks.js](file:///c:/Aplikasi/wamarket/apps/web/src/hooks/useEbooks.js)
+Menambahkan *hooks TanStack Query* (`useBookmarks`, `useAddBookmark`, `useUpdateBookmark`, `useDeleteBookmark`) untuk koneksi ke API baru.
+
+#### [MODIFY] [EbookReaderPage.jsx](file:///c:/Aplikasi/wamarket/apps/web/src/pages/EbookReaderPage.jsx)
+Membangun ulang antarmuka *E-Book Reader* agar mencakup laci samping (Sidebar/Drawer) yang elegan, berisi 2 *Tab*:
+1. **Daftar Materi (Chapters)**:
+   - Sistem akan memanggil otomatis data `pdf.getOutline()` dari `react-pdf` yang terdeteksi menyatu dengan struktur berkas PDF-nya. Ini untuk memunculkan panel bab/judul tanpa kerja manual dari sisi *admin*.
+2. **Penanda Khusus (Bookmarks)**:
+   - Form untuk menambahkan judul pada halaman saat ini.
+   - Merender _thumbnail preview_ (halaman mini berukuran lebar 100px) menggunakan `<Page>` untuk visualisasi riwayat halaman yang di-*bookmark*.
+   - Fitur hapus dan simpan nama.
+
+---
+
+> [!WARNING]
+> ## User Review Required
+> **1. Highlight Text/Warna**: Mengingat mesin *rendering* PDF yang kita gunakan (`react-pdf` berbasis *Canvas*) tidak secara asal-asalan mencatat *highlight*, kita akan dipaksa menggunakan pustaka pihak ketiga yang sangat rumit atau terancam masalah *koordinat gambar meleset* saat diakses dari HP dengan ukuran layar lebih kecil dibanding Desktop. Oleh karena itu, fitur "Highlight" **saya usulkan untuk tidak dimasukkan di Fase 1 (kita tunda dulu)** untuk memastikan stabilitas membaca e-book tetap lincah di HP layar sempit. Apakah Anda setuju?
+>
+> **2. Struktur PDF**: Fitur "Chapters" hanya akan terbaca JIKA file PDF yang di-upload oleh admin memang diformat menggunakan kerangka isi (Table of Contents / Outlines PDF) di Microsoft Word atau Adobe Acrobat. Jika PDF itu cuma berupa gambar flat, "Chapters" akan kosong dengan sendirinya di semua pembaca PDF. Apakah ini sesuai dengan standar file jualan Ebook kita?
+
+## Verification Plan
+
+### Automated/Manual Verification
+1. Mensimulasikan pembuatan *bookmark* di halaman 3 Ebook melalui layar sentuh seluler dan memastikannya muncul di laci "Bookmarks".
+2. Mengetik nama kustom pada *bookmark* halaman 3 lewat UI.
+3. Memastikan *Thumbnail* kecil halaman 3 bisa merender halaman secara sinkron tanpa membebani memori HP.
+4. Menekan *thumbnail Bookmark* akan memicu perintah pindah halaman ke halaman 3.

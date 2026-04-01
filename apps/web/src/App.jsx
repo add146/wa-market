@@ -27,6 +27,9 @@ const CourierDashboardPage = lazy(() => import('./pages/CourierDashboardPage'))
 const PaymentStatusPage = lazy(() => import('./pages/PaymentStatusPage'))
 const WishlistPage = lazy(() => import('./pages/WishlistPage'))
 const AccountPage = lazy(() => import('./pages/AccountPage'))
+const MyLibraryPage = lazy(() => import('./pages/MyLibraryPage'))
+const CoursePlayerPage = lazy(() => import('./pages/CoursePlayerPage'))
+const EbookReaderPage = lazy(() => import('./pages/EbookReaderPage'))
 
 // Admin pages
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'))
@@ -43,6 +46,7 @@ const AdminBannersPage = lazy(() => import('./pages/AdminBannersPage'))
 const AdminCustomersPage = lazy(() => import('./pages/AdminCustomersPage'))
 const AdminNotFoundPage = lazy(() => import('./pages/AdminNotFoundPage'))
 const AdminCouriersPage = lazy(() => import('./pages/AdminCouriersPage'))
+const AdminLMSStudioPage = lazy(() => import('./pages/admin/AdminLMSStudioPage'))
 
 function StorefrontApp() {
     return (
@@ -50,17 +54,21 @@ function StorefrontApp() {
             <Route
                 path="/wishlist"
                 element={
-                    <Suspense fallback={<LoadingState />}>
-                        <WishlistPage />
-                    </Suspense>
+                    <ProtectedRoute requiredRole="user" redirectTo="/login">
+                        <Suspense fallback={<LoadingState />}>
+                            <WishlistPage />
+                        </Suspense>
+                    </ProtectedRoute>
                 }
             />
             <Route
                 path="/account"
                 element={
-                    <Suspense fallback={<LoadingState />}>
-                        <AccountPage />
-                    </Suspense>
+                    <ProtectedRoute requiredRole="user" redirectTo="/login">
+                        <Suspense fallback={<LoadingState />}>
+                            <AccountPage />
+                        </Suspense>
+                    </ProtectedRoute>
                 }
             />
 
@@ -123,6 +131,11 @@ function StorefrontApp() {
                                     <Route path="banners" element={
                                         <ProtectedRoute requiredRole="seller" redirectTo="/unauthorized">
                                             <AdminBannersPage />
+                                        </ProtectedRoute>
+                                    } />
+                                    <Route path="lms-studio/:id" element={
+                                        <ProtectedRoute requiredRole="seller" redirectTo="/unauthorized">
+                                            <AdminLMSStudioPage />
                                         </ProtectedRoute>
                                     } />
 
@@ -227,9 +240,47 @@ function StorefrontApp() {
             <Route
                 path="/my-orders"
                 element={
-                    <Suspense fallback={<LoadingState />}>
-                        <MyOrdersPage />
-                    </Suspense>
+                    <ProtectedRoute requiredRole="user" redirectTo="/login">
+                        <Suspense fallback={<LoadingState />}>
+                            <MyOrdersPage />
+                        </Suspense>
+                    </ProtectedRoute>
+                }
+            />
+
+            {/* My Library - Ebooks & Courses */}
+            <Route
+                path="/my-library"
+                element={
+                    <ProtectedRoute requiredRole="user" redirectTo="/login">
+                        <Suspense fallback={<LoadingState />}>
+                            <MyLibraryPage />
+                        </Suspense>
+                    </ProtectedRoute>
+                }
+            />
+
+            {/* Ebook Reader Player */}
+            <Route
+                path="/ebooks/:id"
+                element={
+                    <ProtectedRoute requiredRole="user" redirectTo="/login">
+                        <Suspense fallback={<LoadingState />}>
+                            <EbookReaderPage />
+                        </Suspense>
+                    </ProtectedRoute>
+                }
+            />
+
+            {/* Course Content Player */}
+            <Route
+                path="/classes/:id"
+                element={
+                    <ProtectedRoute requiredRole="user" redirectTo="/login">
+                        <Suspense fallback={<LoadingState />}>
+                            <CoursePlayerPage />
+                        </Suspense>
+                    </ProtectedRoute>
                 }
             />
 

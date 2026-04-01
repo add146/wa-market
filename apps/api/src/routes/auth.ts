@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { setCookie, deleteCookie } from 'hono/cookie';
+import { setCookie, deleteCookie, getCookie } from 'hono/cookie';
 import { getDb } from '../db';
 import { users } from '../db/schema';
 import { eq, and, or } from 'drizzle-orm';
